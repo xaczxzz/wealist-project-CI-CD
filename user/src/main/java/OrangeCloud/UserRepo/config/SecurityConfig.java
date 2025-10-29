@@ -2,10 +2,11 @@ package OrangeCloud.UserRepo.config;
 
 import OrangeCloud.UserRepo.filter.JwtAuthenticationFilter;
 import OrangeCloud.UserRepo.filter.JwtExceptionFilter;
+import OrangeCloud.UserRepo.service.AuthService; // 💡 AuthService 임포트 추가
+import OrangeCloud.UserRepo.util.JwtTokenProvider; // 💡 JwtTokenProvider 임포트 추가
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -22,17 +23,14 @@ import java.util.Arrays;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final JwtExceptionFilter jwtExceptionFilter;
-
-    @Autowired
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, JwtExceptionFilter jwtExceptionFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.jwtExceptionFilter = jwtExceptionFilter;
-    }
-
+  
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            // 💡 필터들을 메서드 인자로 직접 주입받습니다.
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            JwtExceptionFilter jwtExceptionFilter
+    ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -56,7 +54,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 // JWT 예외 처리 필터를 JWT 인증 필터 앞에 추가
-                .addFilterBefore(jwtExceptionFilter, JwtAuthenticationFilter.class)
+                .addFilterBefore(jwtExceptionFilter, JwtAuthenticationFilter.class) // 💡 필터 순서 수정
                 // JWT 인증 필터 추가
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers
@@ -64,6 +62,27 @@ public class SecurityConfig {
                 )
                 .build();
     }
+
+    // ==================================================
+    // 💡 커스텀 필터들을 빈으로 등록하는 메서드를 추가 (순환 참조 해결의 핵심)
+    // ==================================================
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, AuthService authService) {
+        // JwtAuthenticationFilter가 @Component가 아니므로, SecurityConfig에서
+        // 필요한 의존성을 주입받아 인스턴스를 직접 생성하여 빈으로 등록합니다.
+        return new JwtAuthenticationFilter(jwtTokenProvider, authService);
+    }
+
+    @Bean
+    public JwtExceptionFilter jwtExceptionFilter() {
+        // JwtExceptionFilter는 의존성이 없으므로 인스턴스만 생성합니다.
+        // JwtExceptionFilter에 @Component가 붙어있다면 제거하고 이 빈을 사용해야 합니다.
+        return new JwtExceptionFilter();
+    }
+
+    // ==================================================
+
     @Bean
     public BCryptPasswordEncoder encodePassword() {
         return new BCryptPasswordEncoder();

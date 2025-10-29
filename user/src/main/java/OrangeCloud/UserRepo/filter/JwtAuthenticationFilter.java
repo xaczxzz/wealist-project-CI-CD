@@ -6,11 +6,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -18,21 +16,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.UUID;
 
-/**
- * JWT 토큰 인증 필터
- * 모든 HTTP 요청에 대해 JWT 토큰을 검증하고 사용자 인증을 처리합니다.
- */
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthService authService;
 
-    @Autowired
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, AuthService authService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.authService = authService;
