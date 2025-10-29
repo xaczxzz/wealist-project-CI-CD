@@ -40,9 +40,9 @@ curl http://localhost:8081/health
 
 ## API 문서
 
-- **Swagger UI**: http://localhost:8081/swagger-ui.html
+- **Swagger UI**: http://localhost:8080/swagger-ui.html(현재안됨)
 - **상세 API 문서**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
-- **Health Check**: http://localhost:8081/health
+- **Health Check**: http://localhost:8080/health
 
 ### 주요 엔드포인트
 
@@ -124,7 +124,7 @@ JWT_ACCESS_MS=1800000
 ### 포트 충돌
 ```bash
 # 포트 사용 확인
-lsof -i :8081
+lsof -i :8080
 
 # 포트 변경 (.env 파일)
 USER_SERVICE_PORT=8082
