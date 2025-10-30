@@ -46,7 +46,7 @@ services:
 
   #--- Kanban Service ---
   kanban-service:
-    build: ./board/services/kanban
+    build: ./kanban-service
     container_name: wealist-kanban-service
     command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file: ./.env
