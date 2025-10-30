@@ -1,7 +1,7 @@
 services:
   #--- weAlist-User Service ---
   user-service:
-    build: ./user
+    build: ./user-service
     container_name: wealist-user-service
     env_file: ./.env
     environment:
