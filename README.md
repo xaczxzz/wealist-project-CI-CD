@@ -26,7 +26,7 @@ docker compose up -d
 
 ### 3. 서비스 확인
 
-- **User Service**: http://localhost:8080
+- **User Service**: http://localhost:8080/health
 - **User Service Swagger**: http://localhost:8080/swagger-ui/index.html
 - **Kanban Service**: http://localhost:8000
 - **Kanban Service Swagger**: http://localhost:8000/docs
