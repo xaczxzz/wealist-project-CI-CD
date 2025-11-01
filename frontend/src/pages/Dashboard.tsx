@@ -1,17 +1,5 @@
-import React, {
-  useEffect,
-  useState,
-  // useCallback
-} from 'react';
-import {
-  Menu,
-  User,
-  ChevronDown,
-  Plus,
-  MoreVertical,
-  X,
-  // Search
-} from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Menu, User, ChevronDown, Plus, MoreVertical, X, Search } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import UserProfileModal from '../components/modals/UserProfileModal';
 import TaskDetailModal from '../components/modals/TaskDetailModal';
@@ -21,110 +9,112 @@ import { UserProfile } from '../types';
 // import healthService from '../services/healthTest';
 
 // --- 1. API 스펙에 맞춘 Mock 데이터 타입 정의 ---
-// Kanban API: Workspace 응답 (API 스펙 참고)
 interface WorkspaceResponse {
-  id: string; // Workspace ID (UUID)
+  id: string;
   name: string;
-  created_by: string; // userId
+  created_by: string;
 }
-
-// Kanban API: Project 응답 (API 스펙 참고)
 interface ProjectResponse {
-  id: string; // Project ID (UUID)
+  id: string;
   name: string;
   workspace_id: string;
 }
-
-// 💡 Kanban API: Ticket 응답 (Task로 사용)
 interface Task {
-  id: string; // Ticket ID (UUID)
+  id: string;
   title: string;
   assignee_id: string | null;
-  status: string; // "TODO", "IN_PROGRESS", "REVIEW", "DONE"
-  // ... (description, priority 등)
+  status: string;
 }
-
-// 💡 UI에서 사용할 칸반 컬럼 (상태)
 interface Column {
-  id: string; // "TODO", "IN_PROGRESS" 등
+  id: string;
   title: string;
   tasks: Task[];
 }
-
 // -------------------------------------------------
 
-// 💡 App.tsx에서 전달받는 Props 정의
 interface MainDashboardProps {
   onLogout: () => void;
-  currentGroupId: string; // User Service의 Group ID
-  accessToken: string; // API 호출에 사용될 토큰
+  currentGroupId: string;
+  accessToken: string;
 }
 
 // --- 2. Mock API 함수 정의 (백엔드 대체) ---
-
-// 🚧 Mock: 조직(Workspace) 목록 조회
-const mockFetchWorkspaces = async (token: string): Promise<WorkspaceResponse[]> => {
-  console.log('[Mock] API: 조직(Workspace) 목록 조회 (Token:', token ? '있음' : '없음', ')');
-  await new Promise((resolve) => setTimeout(resolve, 300)); // 딜레이
-  return [
-    { id: 'ws-mock-111', name: 'Wealist 개발팀 (Mock)', created_by: 'user-1' },
-    { id: 'ws-mock-222', name: 'Orange Cloud 디자인팀 (Mock)', created_by: 'user-2' },
-    { id: 'ws-mock-333', name: '개인 스터디 (Mock)', created_by: 'user-1' },
-  ];
+const mockFetchWorkspaces = async (_token: string): Promise<{ items: WorkspaceResponse[] }> => {
+  console.log('[Mock] API: 조직(Workspace) 목록 조회');
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  return {
+    items: [
+      { id: 'ws-mock-111', name: 'Wealist 개발팀 (Mock)', created_by: 'user-1' },
+      { id: 'ws-mock-222', name: 'Orange Cloud 디자인팀 (Mock)', created_by: 'user-2' },
+      { id: 'ws-mock-333', name: '개인 스터디 (Mock)', created_by: 'user-1' },
+    ],
+  };
 };
 
-// 🚧 Mock: 프로젝트 목록 조회 (조직 ID 기반)
 const mockFetchProjects = async (
   workspaceId: string,
-  // token: string,
-): Promise<ProjectResponse[]> => {
+  _token: string,
+): Promise<{ items: ProjectResponse[] }> => {
   console.log(`[Mock] API: 프로젝트 목록 조회 (Workspace: ${workspaceId})`);
   await new Promise((resolve) => setTimeout(resolve, 200));
-
   if (workspaceId === 'ws-mock-222') {
-    // 디자인팀 Mock
-    return [
-      { id: 'prj-mock-design-A', name: '랜딩페이지 디자인', workspace_id: workspaceId },
-      { id: 'prj-mock-design-B', name: 'BI/CI 리뉴얼', workspace_id: workspaceId },
-    ];
+    return {
+      items: [
+        { id: 'prj-mock-design-A', name: '랜딩페이지 디자인', workspace_id: workspaceId },
+        { id: 'prj-mock-design-B', name: 'BI/CI 리뉴얼', workspace_id: workspaceId },
+      ],
+    };
   }
-  // 기본 Mock (개발팀)
-  return [
-    { id: 'prj-mock-dev-A', name: '백엔드 API 개발', workspace_id: workspaceId },
-    { id: 'prj-mock-dev-B', name: '프론트엔드 UI/UX', workspace_id: workspaceId },
-    { id: 'prj-mock-dev-C', name: '인프라 구축 (K8s)', workspace_id: workspaceId },
-  ];
+  return {
+    items: [
+      { id: 'prj-mock-dev-A', name: '백엔드 API 개발', workspace_id: workspaceId },
+      { id: 'prj-mock-dev-B', name: '프론트엔드 UI/UX', workspace_id: workspaceId },
+      { id: 'prj-mock-dev-C', name: '인프라 구축 (K8s)', workspace_id: workspaceId },
+    ],
+  };
 };
 
-// 🚧 Mock: 칸반 보드/태스크(Ticket) 목록 조회 (프로젝트 ID 기반)
-const mockFetchKanbanBoard = async (
-  projectId: string,
-  // token: string
-): Promise<Column[]> => {
+const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<Column[]> => {
   console.log(`[Mock] API: 칸반 보드 로드 (Project: ${projectId})`);
   await new Promise((resolve) => setTimeout(resolve, 400));
-
-  // 프로젝트 ID에 따라 다른 Mock Task 반환
   const baseTasks: Task[] = [
-    { id: 't-1', title: `[${projectId}] UI 디자인`, assignee_id: 'user-1', status: 'TODO' },
-    { id: 't-2', title: `[${projectId}] API 문서 작성`, assignee_id: 'user-2', status: 'TODO' },
+    {
+      id: 't-1',
+      title: `[${projectId.slice(0, 5)}] UI 디자인`,
+      assignee_id: 'user-1',
+      status: 'TODO',
+    },
+    {
+      id: 't-2',
+      title: `[${projectId.slice(0, 5)}] API 문서 작성`,
+      assignee_id: 'user-2',
+      status: 'TODO',
+    },
     {
       id: 't-3',
-      title: `[${projectId}] 로그인 기능 구현`,
+      title: `[${projectId.slice(0, 5)}] 로그인 기능 구현`,
       assignee_id: 'user-3',
       status: 'IN_PROGRESS',
     },
     {
       id: 't-4',
-      title: `[${projectId}] DB 스키마 설계`,
+      title: `[${projectId.slice(0, 5)}] DB 스키마 설계`,
       assignee_id: 'user-4',
       status: 'IN_PROGRESS',
     },
-    { id: 't-5', title: `[${projectId}] 코드 리뷰 요청`, assignee_id: 'user-1', status: 'REVIEW' },
-    { id: 't-6', title: `[${projectId}] 1차 배포 완료`, assignee_id: 'user-3', status: 'DONE' },
+    {
+      id: 't-5',
+      title: `[${projectId.slice(0, 5)}] 코드 리뷰 요청`,
+      assignee_id: 'user-1',
+      status: 'REVIEW',
+    },
+    {
+      id: 't-6',
+      title: `[${projectId.slice(0, 5)}] 1차 배포 완료`,
+      assignee_id: 'user-3',
+      status: 'DONE',
+    },
   ];
-
-  // Task를 상태(Column)별로 재분배
   return [
     { id: 'TODO', title: '할 일', tasks: baseTasks.filter((t) => t.status === 'TODO') },
     {
@@ -138,7 +128,11 @@ const mockFetchKanbanBoard = async (
 };
 // ----------------------------------------------------
 
-const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId, accessToken }) => {
+const MainDashboard: React.FC<MainDashboardProps> = ({
+  onLogout,
+  // currentGroupId,
+  accessToken,
+}) => {
   const { theme } = useTheme();
 
   // --- 3. 상태 관리 (API 연동) ---
@@ -149,78 +143,102 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
   const [selectedWorkspace, setSelectedWorkspace] = useState<WorkspaceResponse | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectResponse | null>(null);
 
-  const [userProfile, _setUserProfile] = useState<UserProfile>({
+  // 💡 _setUserProfile -> setUserProfile로 변경
+  const [userProfile, setUserProfile] = useState<UserProfile>({
     name: 'Mock User',
     email: 'mock@wealist.com',
     avatar: 'P',
   });
 
   // UI 상태
-  const [_isLoading, setIsLoading] = useState<boolean>(true);
+  // 💡 _isLoading -> isLoadingData로 변수명 통일
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState<boolean>(false);
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
   const [showUserProfile, setShowUserProfile] = useState<boolean>(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState('');
 
   // --- 4. 데이터 연동 (useEffect 연쇄) ---
 
-  // 💡 [Phase 1] 대시보드 진입: 조직(Workspace) 목록 로드
-  useEffect(() => {
-    setIsLoading(true);
-    mockFetchWorkspaces(accessToken)
-      .then((data) => {
-        setWorkspaces(data);
-        // 기본 셋팅: 첫 번째 조직(Workspace)을 자동으로 선택
-        if (data.length > 0) {
-          setSelectedWorkspace(data[0]);
-        }
-      })
-      .catch((err) => console.error('조직(Workspace) 로드 실패', err))
-      .finally(() => setIsLoading(false));
-  }, [accessToken, currentGroupId]); // GroupId가 바뀌면 Workspace도 다시 로드 (실제 API 연동 시 필요)
-
-  // 💡 [Phase 2] 조직(Workspace) 변경 시: 프로젝트 목록 리로드
-  useEffect(() => {
-    if (!selectedWorkspace) return; // 선택된 조직이 없으면 중지
-
-    setIsLoading(true);
-    mockFetchProjects(
-      selectedWorkspace.id,
-      // accessToken
-    )
-      .then((data) => {
-        setProjects(data);
-        // 기본 셋팅: 첫 번째 프로젝트를 자동으로 선택
-        if (data.length > 0) {
-          setSelectedProject(data[0]);
+  const fetchProjectData = useCallback(
+    async (workspaceId: string) => {
+      setIsLoadingData(true);
+      try {
+        const projectList = await mockFetchProjects(workspaceId, accessToken);
+        setProjects(projectList.items || []);
+        if (projectList.items && projectList.items.length > 0) {
+          setSelectedProject(projectList.items[0]);
         } else {
-          setSelectedProject(null); // 프로젝트가 없으면 초기화
+          setSelectedProject(null);
         }
-      })
-      .catch((err) => console.error('프로젝트 로드 실패', err))
-      .finally(() => setIsLoading(false));
-  }, [selectedWorkspace, accessToken]); // 👈 'selectedWorkspace'가 변경될 때마다 실행
+      } catch (err) {
+        console.error('Project Load Failed:', err);
+        setDataError('프로젝트 목록을 불러오지 못했습니다.');
+      } finally {
+        setIsLoadingData(false); // 💡 isLoadingData 사용
+      }
+    },
+    [accessToken],
+  );
 
-  // 💡 [Phase 3] 프로젝트 변경 시: 칸반 보드(Ticket/Task) 리로드
+  const initDataFetch = useCallback(async () => {
+    setIsLoadingData(true); // 💡 isLoadingData 사용
+    setDataError(null);
+    try {
+      // 💡 setUserProfile 사용
+      setUserProfile({
+        name: 'Mock User',
+        email: 'mock@wealist.com',
+        avatar: 'P',
+      });
+
+      const workspaceListResponse = await mockFetchWorkspaces(accessToken);
+      const loadedWorkspaces = workspaceListResponse.items || [];
+      setWorkspaces(loadedWorkspaces);
+
+      if (loadedWorkspaces.length > 0) {
+        const defaultWorkspace = loadedWorkspaces[0];
+        setSelectedWorkspace(defaultWorkspace);
+        await fetchProjectData(defaultWorkspace.id); // 프로젝트 로드 대기
+      }
+    } catch (err) {
+      console.error('❌ API Data Fetch failed:', err);
+      setDataError('초기 데이터 로드에 실패했습니다. (Kanban API Mock)');
+    } finally {
+      setIsLoadingData(false); // 💡 isLoadingData 사용
+    }
+  }, [accessToken, fetchProjectData]);
+
+  useEffect(() => {
+    initDataFetch();
+  }, [initDataFetch]);
+
+  // Workspace 선택 변경 시 Project 데이터 다시 로드
+  useEffect(() => {
+    if (selectedWorkspace) {
+      fetchProjectData(selectedWorkspace.id);
+    }
+  }, [selectedWorkspace, fetchProjectData]);
+
+  // 프로젝트 변경 시 칸반 보드 리로드
   useEffect(() => {
     if (!selectedProject) {
-      // 선택된 프로젝트가 없으면
-      setColumns([]); // 칸반 보드 비우기
+      setColumns([]);
       return;
     }
 
-    setIsLoading(true);
-    mockFetchKanbanBoard(
-      selectedProject.id,
-      // accessToken
-    )
+    setIsLoadingData(true); // 💡 isLoadingData 사용
+    mockFetchKanbanBoard(selectedProject.id, accessToken)
       .then((data) => {
-        setColumns(data); // 💡 칸반 보드 상태 업데이트
+        setColumns(data);
       })
       .catch((err) => console.error('칸반 보드 로드 실패', err))
-      .finally(() => setIsLoading(false));
-  }, [selectedProject, accessToken]); // 👈 'selectedProject'가 변경될 때마다 실행
+      .finally(() => setIsLoadingData(false)); // 💡 isLoadingData 사용
+  }, [selectedProject, accessToken]);
 
   // --- 5. 드래그 앤 드롭 로직 (Mock 데이터 기준) ---
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -238,23 +256,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
   const handleDrop = (targetColumnId: string): void => {
     if (!draggedTask || !draggedFromColumn || draggedFromColumn === targetColumnId) return;
 
-    // 💡 Mock 데이터 업데이트
     const updatedTask = { ...draggedTask, status: targetColumnId };
 
     const newColumns = columns.map((col) => {
-      // 1. 드래그 시작 컬럼에서 태스크 제거
       if (col.id === draggedFromColumn) {
-        return {
-          ...col,
-          tasks: col.tasks.filter((t) => t.id !== draggedTask.id),
-        };
+        return { ...col, tasks: col.tasks.filter((t) => t.id !== draggedTask.id) };
       }
-      // 2. 드롭 대상 컬럼에 태스크 추가
       if (col.id === targetColumnId) {
-        return {
-          ...col,
-          tasks: [...col.tasks, updatedTask],
-        };
+        return { ...col, tasks: [...col.tasks, updatedTask] };
       }
       return col;
     });
@@ -263,13 +272,60 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
     setDraggedTask(null);
     setDraggedFromColumn(null);
 
-    // 💡 TODO: 백엔드 준비 시, 여기서 (PATCH /api/tickets/{ticket_id}) API 호출
     console.log(`[Mock] API: Task ${draggedTask.id} 상태를 ${targetColumnId}(으)로 변경 요청`);
   };
 
   const columnColors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500'];
 
-  // --- 6. UI 렌더링 ---
+  // --- 6. Workspace 검색 필터링 로직 ---
+  const filteredWorkspaces = workspaces.filter((ws) => {
+    if (!workspaceSearchQuery.trim()) {
+      return true;
+    }
+    const query = workspaceSearchQuery.toLowerCase();
+    return ws.name.toLowerCase().includes(query) || ws.id.toLowerCase().includes(query);
+  });
+
+  // --- 로딩/에러 화면 ---
+  if (isLoadingData && projects.length === 0) {
+    // 💡 isLoadingData 사용
+    return (
+      <div className={`min-h-screen ${theme.colors.background} flex items-center justify-center`}>
+        <div className="p-8">
+          <p className={`${theme.font.size.xl} ${theme.colors.text}`}>
+            데이터를 로드하는 중입니다... 🚀
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (dataError) {
+    return (
+      <div
+        className={`min-h-screen ${theme.colors.background} flex items-center justify-center text-center p-8`}
+      >
+        <div className="p-8 rounded-lg shadow-lg border">
+          <h1 className={`${theme.font.size.xl} ${theme.colors.danger} mb-4`}>데이터 로드 실패</h1>
+          <p className={`${theme.colors.subText} mb-6`}>{dataError}</p>
+          <button
+            onClick={initDataFetch}
+            className={`bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition`}
+          >
+            다시 시도
+          </button>
+          <button
+            onClick={onLogout}
+            className={`bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 transition ml-2`}
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- 7. UI 렌더링 ---
   return (
     <div className={`min-h-screen ${theme.colors.background}`}>
       {/* 백그라운드 패턴 */}
@@ -289,7 +345,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
       >
         <div className="flex items-center justify-between relative z-10">
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* 💡 조직(Workspace) 선택 드롭다운 (API 연동) */}
+            {/* 조직(Workspace) 선택 드롭다운 */}
             <div className="relative hidden md:block">
               <button
                 onClick={() => setShowWorkspaceMenu(!showWorkspaceMenu)}
@@ -303,25 +359,48 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
               </button>
               {showWorkspaceMenu && (
                 <div
-                  className={`absolute top-full left-0 mt-2 w-48 sm:w-64 ${theme.colors.card} ${theme.effects.cardBorderWidth} ${theme.colors.border} z-50 ${theme.effects.borderRadius}`}
+                  className={`absolute top-full left-0 mt-2 w-64 ${theme.colors.card} ${theme.effects.cardBorderWidth} ${theme.colors.border} z-50 ${theme.effects.borderRadius}`}
                   style={{ boxShadow: theme.effects.shadow }}
                 >
-                  {workspaces.map((workspace) => (
-                    <button
-                      key={workspace.id}
-                      onClick={() => {
-                        setSelectedWorkspace(workspace); // 💡 선택 시 'selectedWorkspace' 상태 변경
-                        setShowWorkspaceMenu(false);
-                      }}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-orange-100 transition ${
-                        theme.effects.cardBorderWidth
-                      } ${theme.colors.border} border-t-0 border-l-0 border-r-0 last:border-b-0 ${
-                        theme.font.size.xs
-                      } ${selectedWorkspace?.id === workspace.id ? 'bg-blue-100 font-bold' : ''}`}
-                    >
-                      {workspace.name}
-                    </button>
-                  ))}
+                  <div className="p-2 border-b">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="조직(Workspace) 검색..."
+                        value={workspaceSearchQuery}
+                        onChange={(e) => setWorkspaceSearchQuery(e.target.value)}
+                        className={`w-full px-3 py-2 pl-8 ${theme.colors.secondary} ${theme.font.size.sm} rounded-md border`}
+                      />
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto">
+                    {filteredWorkspaces.length > 0 ? (
+                      filteredWorkspaces.map((workspace) => (
+                        <button
+                          key={workspace.id}
+                          onClick={() => {
+                            setSelectedWorkspace(workspace);
+                            setShowWorkspaceMenu(false);
+                            setWorkspaceSearchQuery('');
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-blue-50 transition last:border-b-0 ${
+                            theme.font.size.xs
+                          } ${
+                            selectedWorkspace?.id === workspace.id ? 'bg-blue-100 font-bold' : ''
+                          }`}
+                        >
+                          {workspace.name}
+                        </button>
+                      ))
+                    ) : (
+                      <p className={`p-3 text-center ${theme.colors.subText}`}>
+                        {workspaces.length > 0
+                          ? '검색 결과가 없습니다.'
+                          : '로드된 조직이 없습니다.'}
+                      </p>
+                    )}
+                  </div>
                   <div
                     className={`${theme.effects.cardBorderWidth} ${theme.colors.border} border-b-0 border-l-0 border-r-0`}
                   ></div>
@@ -335,7 +414,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
               )}
             </div>
 
-            {/* 모바일 메뉴 버튼 */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
               className={`md:hidden relative ${theme.colors.secondary} ${theme.effects.cardBorderWidth} ${theme.colors.border} p-2 ${theme.effects.borderRadius}`}
@@ -369,7 +447,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
                     setShowUserProfile(true);
                     setShowUserMenu(false);
                   }}
-                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-orange-100 transition ${theme.effects.cardBorderWidth} ${theme.colors.border} border-t-0 border-l-0 border-r-0 ${theme.font.size.xs}`}
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-blue-50 transition ${theme.effects.cardBorderWidth} ${theme.colors.border} border-t-0 border-l-0 border-r-0 ${theme.font.size.xs}`}
                 >
                   프로필
                 </button>
@@ -388,7 +466,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
         </div>
       </header>
 
-      {/* 모바일 메뉴 (API 연동) */}
+      {/* 모바일 메뉴 */}
       {showMobileMenu && (
         <div
           className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-50"
@@ -432,7 +510,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
         </div>
       )}
 
-      {/* 💡 프로젝트 탭 바 (API 연동) */}
+      {/* 프로젝트 탭 바 */}
       <div
         className={`${theme.colors.card} ${theme.effects.borderWidth} ${theme.colors.border} border-t-0 border-l-0 border-r-0 px-3 sm:px-6 py-2 sm:py-3 overflow-x-auto`}
       >
@@ -460,7 +538,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
         </div>
       </div>
 
-      {/* 💡 칸반 보드 (API 연동) */}
+      {/* 칸반 보드 */}
       <div className="p-3 sm:p-6 relative z-10">
         <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 lg:overflow-x-auto pb-4">
           {columns.map((column, idx) => (
@@ -503,7 +581,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
                         draggable
                         onDragStart={() => handleDragStart(task, column.id)}
                         onClick={() => setSelectedTask(task as any)} // (임시 타입 변환)
-                        className={`relative ${theme.colors.card} p-3 sm:p-4 ${theme.effects.cardBorderWidth} ${theme.colors.border} hover:border-orange-500 transition cursor-pointer ${theme.effects.borderRadius}`}
+                        className={`relative ${theme.colors.card} p-3 sm:p-4 ${theme.effects.cardBorderWidth} ${theme.colors.border} hover:border-blue-500 transition cursor-pointer ${theme.effects.borderRadius}`}
                       >
                         <h4
                           className={`font-bold ${theme.colors.text} mb-2 sm:mb-3 ${theme.font.size.xs} break-words`}
@@ -525,7 +603,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
                   ))}
                   <div className="relative">
                     <button
-                      className={`relative w-full py-3 sm:py-4 ${theme.effects.cardBorderWidth} border-dashed ${theme.colors.border} ${theme.colors.card} hover:bg-orange-50 transition flex items-center justify-center gap-2 ${theme.font.size.xs} ${theme.effects.borderRadius}`}
+                      className={`relative w-full py-3 sm:py-4 ${theme.effects.cardBorderWidth} border-dashed ${theme.colors.border} ${theme.colors.card} hover:bg-gray-100 transition flex items-center justify-center gap-2 ${theme.font.size.xs} ${theme.effects.borderRadius}`}
                     >
                       <Plus className="w-3 h-3 sm:w-4 sm:h-4" style={{ strokeWidth: 3 }} />
                       태스크 추가
@@ -537,7 +615,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, currentGroupId,
           ))}
           <div className="w-full lg:w-80 lg:flex-shrink-0 relative">
             <button
-              className={`relative w-full h-24 sm:h-32 ${theme.effects.cardBorderWidth} border-dashed ${theme.colors.border} ${theme.colors.card} hover:bg-orange-50 transition flex items-center justify-center gap-2 ${theme.font.size.xs} ${theme.effects.borderRadius}`}
+              className={`relative w-full h-24 sm:h-32 ${theme.effects.cardBorderWidth} border-dashed ${theme.colors.border} ${theme.colors.card} hover:bg-gray-100 transition flex items-center justify-center gap-2 ${theme.font.size.xs} ${theme.effects.borderRadius}`}
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" style={{ strokeWidth: 3 }} />
               새로운 티켓
