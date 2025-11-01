@@ -91,37 +91,12 @@ kanban-project/
 ├── .env.example                 # 환경 변수 템플릿
 ├── package.json
 └── README.md
-```
 
-## 🚀 시작하기
 
-### 필수 요구사항
-
-- Node.js 18.x 이상
-- npm 또는 yarn
-- Java 백엔드 서버 (Port 8080)
-- Python 백엔드 서버 (Port 8000)
-
-### 설치 및 실행
-
-0. (\*)백엔드 서비스를 먼저 띄워주세요!
-
-1. **저장소 클론**
-
-```bash
-git clone https://github.com/your-username/kanban-project.git
-cd kanban-project
-```
-
-2. **의존성 설치**
+**개발 서버 실행**
 
 ```bash
 npm install
-```
-
-3. **개발 서버 실행**
-
-```bash
 npm start
 ```
 
