@@ -42,7 +42,7 @@ const SelectGroupPage: React.FC<SelectGroupPageProps> = ({
 
       setTimeout(() => {
         // [Mock] 미리 정의된 조직 목록을 반환합니다. (사용자가 속한 그룹이 있다면 목록에 나타납니다.)
-        // 현재는 '처음 접속한 사용자' 시나리오에 맞게 빈 목록을 반환하는 대신,
+        // 현재는 '처음 접속한 사용자' 시나리오에 맞게 빈 목록을 반환하는 대신
         // 선택할 수 있는 조직 목록을 Mock으로 제공합니다.
         setGroups(MOCK_GROUPS);
         setIsLoading(false);
