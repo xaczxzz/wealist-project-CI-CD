@@ -34,7 +34,7 @@ const SelectGroupPage: React.FC<SelectGroupPageProps> = ({
   const [newCompany, setNewCompany] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. 그룹 목록 조회 및 초기화 (MOCK 처리)
+  // 1. 그룹 목록 조회 및 초기화 (MOCK)
   useEffect(() => {
     const mockFetchGroups = () => {
       setIsLoading(true);
