@@ -3,15 +3,15 @@ name: Frontend CI/CD to S3/CloudFront
 on:
   push:
     branches:
-      - 11-frontend # main 브랜치에 푸시될 때 이 워크플로우를 실행합니다.
+      - 11-frontend # 11-frontend 브랜치에 푸시될 때 워크플로우를 실행합니다.
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    # 💡 환경 변수 설정
     env:
-      BUILD_DIR: frontend/build # wealist-project/frontend 아래에 있으므로 경로 조정
+      BUILD_DIR: frontend/build
 
     steps:
       - name: ⬇️ Checkout Repository
@@ -21,34 +21,35 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm" # 의존성 설치 속도 향상을 위한 캐싱
+          cache: "npm"
           cache-dependency-path: "frontend/package-lock.json"
 
       - name: 📦 Install Dependencies & Build
-        # 사용자 프로젝트 경로가 wealist-project/frontend 아래이므로 해당 경로로 이동합니다.
+        # frontend 디렉토리로 이동하여 npm install 및 빌드 실행
         run: |
           cd frontend 
           npm install
           npm run build
-        # 💡 프로젝트에 맞게 'npm install', 'npm run build' 명령을 수정하세요.
 
       - name: 🔑 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # 변경된 Secrets 이름을 사용합니다.
           aws-access-key-id: ${{ secrets.FRONTEND_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.FRONTEND_AWS_SECRET_ACCESS_KEY }}
+          # AWS 리전 코드를 직접 입력 (Secret 오류를 우회하기 위해 임시로 하드코딩)
           aws-region: "ap-northeast-2"
 
       - name: ⬆️ Deploy to S3
         run: |
+          # 빌드 결과 폴더를 S3 버킷과 동기화
           aws s3 sync \
             ./frontend/${{ env.BUILD_DIR }} \
-            s3://${{ secrets.FRONTEND_S3_BUCKET_NAME }}/ \ # 변경된 Secrets 이름을 사용합니다.
+            s3://${{ secrets.FRONTEND_S3_BUCKET_NAME }}/ \
             --delete
 
       - name: 🌐 Invalidate CloudFront Cache
         run: |
+          # CloudFront 캐시 무효화 (새로운 내용 즉시 반영)
           aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.FRONTEND_CLOUDFRONT_ID }} \ # 변경된 Secrets 이름을 사용합니다.
+            --distribution-id ${{ secrets.FRONTEND_CLOUDFRONT_ID }} \
             --paths "/*"
