@@ -2,8 +2,11 @@ package OrangeCloud.UserRepo.config;
 
 import OrangeCloud.UserRepo.filter.JwtAuthenticationFilter;
 import OrangeCloud.UserRepo.filter.JwtExceptionFilter;
+import OrangeCloud.UserRepo.oauth.CustomOAuth2UserService;
+import OrangeCloud.UserRepo.oauth.OAuth2SuccessHandler;
 import OrangeCloud.UserRepo.service.AuthService;
 import OrangeCloud.UserRepo.util.JwtTokenProvider;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -19,7 +22,11 @@ import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain filterChain(
@@ -27,9 +34,9 @@ public class SecurityConfig {
             JwtTokenProvider jwtTokenProvider,
             AuthService authService
     ) throws Exception {
-        // 필터 생성 (SecurityConfig에서 직접 생성, 순환 참조 방지)
+        // JWT 필터 생성 (순환 참조 방지)
         JwtAuthenticationFilter jwtAuthenticationFilter =
-            new JwtAuthenticationFilter(jwtTokenProvider, authService);
+                new JwtAuthenticationFilter(jwtTokenProvider, authService);
         JwtExceptionFilter jwtExceptionFilter = new JwtExceptionFilter();
 
         return http
@@ -47,21 +54,30 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/signup").permitAll()
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/refresh").permitAll()
+                        // OAuth2 로그인 경로 허용
+                        .requestMatchers("/login/oauth2/**").permitAll()
+                        .requestMatchers("/oauth2/**").permitAll()
                         // 테스트 엔드포인트 허용
                         .requestMatchers("/test").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         // ************ 나중에 아래 전체 허용 해제 필수 **********
-
                         .requestMatchers("/**").permitAll()
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )
-                // JWT 인증 필터 추가 (UsernamePasswordAuthenticationFilter 전)
+                // JWT 인증 필터 추가
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                // JWT 예외 처리 필터 추가 (가장 앞에 배치되어 exception 처리)
+                // JWT 예외 처리 필터 추가
                 .addFilterBefore(jwtExceptionFilter, UsernamePasswordAuthenticationFilter.class)
+                // OAuth2 로그인 설정 추가
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo ->
+                                userInfo.userService(customOAuth2UserService)
+                        )
+                        .successHandler(oAuth2SuccessHandler)
+                )
                 .headers(headers -> headers
                         .frameOptions(frame -> frame.sameOrigin())
                 )

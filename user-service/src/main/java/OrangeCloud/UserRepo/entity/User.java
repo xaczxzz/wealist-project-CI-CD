@@ -6,7 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -20,7 +19,7 @@ import java.util.UUID;
 @EqualsAndHashCode(of = "userId")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)  // IDENTITY → UUID로 변경
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id", updatable = false, nullable = false, columnDefinition = "UUID")
     private UUID userId;
 
@@ -30,8 +29,19 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    // OAuth2 로그인 시 비밀번호가 없을 수 있으므로 nullable
+    @Column(name = "password_hash")
     private String passwordHash;
+
+    // 로그인 제공자 (google, local 등)
+    @Column(name = "provider")
+    @Builder.Default
+    private String provider = "local";
+
+    // 사용자 역할
+    @Column(name = "role")
+    @Builder.Default
+    private String role = "ROLE_USER";
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -46,24 +56,30 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
-        @Column(name = "deleted_at")
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
-        private LocalDateTime deletedAt;
-
-    
-
-        // 관계 매핑 (필요시)
-
-        // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-
-        // private List<Member> members;
-
-    
-
-        // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-
-        // private List<Team> teams;
-
+    /**
+     * OAuth2 로그인 시 사용자 정보 업데이트
+     */
+    public User updateOAuth2Info(String name) {
+        this.name = name;
+        return this;
     }
 
-    
+    /**
+     * 소프트 삭제 처리
+     */
+    public void softDelete() {
+        this.isActive = false;
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 소프트 삭제 복구
+     */
+    public void restore() {
+        this.isActive = true;
+        this.deletedAt = null;
+    }
+}
