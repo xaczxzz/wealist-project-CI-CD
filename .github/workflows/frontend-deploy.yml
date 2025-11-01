@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BUILD_DIR: frontend/build
+      BUILD_DIR: frontend/build # frontend/build 폴더를 참조합니다.
 
     steps:
       - name: ⬇️ Checkout Repository
@@ -36,21 +36,13 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.FRONTEND_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.FRONTEND_AWS_SECRET_ACCESS_KEY }}
-          # AWS 리전 코드를 직접 입력 (Secret 오류를 우회하기 위해 임시로 하드코딩)
+          # 하드코딩된 리전 값 사용 (디버깅 완료 후 Secret으로 복구 권장)
           aws-region: "ap-northeast-2"
 
       - name: ⬆️ Deploy to S3
-        run: |
-          # 💡 명령어 시작 경로를 현재 작업 디렉토리(레포지토리 루트) 기준으로 수정
-          # ./frontend/build 가 되어야 하므로 ./frontend/를 제거합니다.
-          aws s3 sync \
-            ./${{ env.BUILD_DIR }} \  # 수정: ./frontend/ 제거
-            s3://${{ secrets.FRONTEND_S3_BUCKET_NAME }}/ \
-            --delete
+        # 💡 S3 Sync 명령 단순화 및 정확한 경로 참조: ./frontend/build를 참조합니다.
+        run: aws s3 sync ./${{ env.BUILD_DIR }} s3://${{ secrets.FRONTEND_S3_BUCKET_NAME }}/ --delete
 
       - name: 🌐 Invalidate CloudFront Cache
-        run: |
-          # CloudFront 캐시 무효화 (새로운 내용 즉시 반영)
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.FRONTEND_CLOUDFRONT_ID }} \
-            --paths "/*"
+        # 💡 CloudFront 캐시 무효화 명령 단순화
+        run: aws cloudfront create-invalidation --distribution-id ${{ secrets.FRONTEND_CLOUDFRONT_ID }} --paths "/*"
