@@ -10,7 +10,7 @@ interface SelectGroupPageProps {
   onGroupSelected: (groupId: string) => void;
 }
 
-// 🚧 Mock 데이터 정의 (조직 검색을 위한 더미 데이터)
+//  Mock 데이터 정의 (조직 검색을 위한 더미 데이터)
 const MOCK_GROUPS: GroupResponse[] = [
   { groupId: '1111-a', name: 'Wealist Dev Team (Mock)', companyName: 'Wealist Inc.' },
   { groupId: '2222-b', name: 'Orange Cloud Design (Mock)', companyName: 'KT Cloud' },
