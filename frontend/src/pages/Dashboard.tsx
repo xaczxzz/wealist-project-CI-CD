@@ -3,7 +3,8 @@ import { Menu, User, ChevronDown, Plus, MoreVertical, X, Search } from 'lucide-r
 import { useTheme } from '../contexts/ThemeContext';
 import UserProfileModal from '../components/modals/UserProfileModal';
 import TaskDetailModal from '../components/modals/TaskDetailModal';
-import { Column, Task, UserProfile } from '../types';
+import ColumnDetailModal from '../components/modals/ColumnDetailModal'; // 💡 ColumnDetailModal import
+import { UserProfile } from '../types';
 
 // --- 1. API 스펙에 맞춘 Mock 데이터 타입 정의 ---
 interface WorkspaceResponse {
@@ -11,17 +12,22 @@ interface WorkspaceResponse {
   name: string;
   created_by: string;
 }
-// 💡 API 스펙에 맞게 목록 응답 타입을 정의합니다.
-interface ListResponse<T> {
-  total: number;
-  items: T[];
-  limit: number;
-  offset: number;
-}
 interface ProjectResponse {
   id: string;
   name: string;
   workspace_id: string;
+}
+interface Task {
+  id: string;
+  title: string;
+  assignee_id: string | null;
+  status: string;
+  assignee: string;
+}
+interface Column {
+  id: string;
+  title: string;
+  tasks: Task[];
 }
 // -------------------------------------------------
 
@@ -32,17 +38,11 @@ interface MainDashboardProps {
 }
 
 // --- 2. Mock API 함수 정의 (백엔드 대체) ---
-
-// 🚧 Mock: 조직(Workspace) 목록 조회 (반환 타입 수정)
-const mockFetchWorkspaces = async (_token: string): Promise<ListResponse<WorkspaceResponse>> => {
+const mockFetchWorkspaces = async (_token: string): Promise<{ items: WorkspaceResponse[] }> => {
   console.log('[Mock] API: 조직(Workspace) 목록 조회');
   await new Promise((resolve) => setTimeout(resolve, 300));
   return {
-    total: 3,
-    limit: 20,
-    offset: 0,
     items: [
-      // 💡 items 속성에 배열을 담습니다.
       { id: 'ws-mock-111', name: 'Wealist 개발팀 (Mock)', created_by: 'user-1' },
       { id: 'ws-mock-222', name: 'Orange Cloud 디자인팀 (Mock)', created_by: 'user-2' },
       { id: 'ws-mock-333', name: '개인 스터디 (Mock)', created_by: 'user-1' },
@@ -50,29 +50,27 @@ const mockFetchWorkspaces = async (_token: string): Promise<ListResponse<Workspa
   };
 };
 
-// 🚧 Mock: 프로젝트 목록 조회 (반환 타입 수정)
 const mockFetchProjects = async (
   workspaceId: string,
   _token: string,
-): Promise<ListResponse<ProjectResponse>> => {
+): Promise<{ items: ProjectResponse[] }> => {
   console.log(`[Mock] API: 프로젝트 목록 조회 (Workspace: ${workspaceId})`);
   await new Promise((resolve) => setTimeout(resolve, 200));
-
-  let projects: ProjectResponse[] = [];
   if (workspaceId === 'ws-mock-222') {
-    projects = [
-      { id: 'prj-mock-design-A', name: '랜딩페이지 디자인', workspace_id: workspaceId },
-      { id: 'prj-mock-design-B', name: 'BI/CI 리뉴얼', workspace_id: workspaceId },
-    ];
-  } else {
-    projects = [
+    return {
+      items: [
+        { id: 'prj-mock-design-A', name: '랜딩페이지 디자인', workspace_id: workspaceId },
+        { id: 'prj-mock-design-B', name: 'BI/CI 리뉴얼', workspace_id: workspaceId },
+      ],
+    };
+  }
+  return {
+    items: [
       { id: 'prj-mock-samsung', name: '삼성물산 백오피스 (Mock)', workspace_id: workspaceId },
       { id: 'prj-mock-cj', name: 'CJ 어드민 페이지 (Mock)', workspace_id: workspaceId },
       { id: 'prj-mock-internal', name: '자체 서비스 (Wealist)', workspace_id: workspaceId },
-    ];
-  }
-
-  return { total: projects.length, limit: 20, offset: 0, items: projects }; // 💡 items 속성에 배열을 담습니다.
+    ],
+  };
 };
 
 const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<Column[]> => {
@@ -147,7 +145,7 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
 
 const MainDashboard: React.FC<MainDashboardProps> = ({
   onLogout,
-  //  currentGroupId,
+  // currentGroupId,
   accessToken,
 }) => {
   const { theme } = useTheme();
@@ -177,6 +175,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState('');
 
+  // 💡 새 상태: 선택된 컬럼 모달
+  const [selectedColumn, setSelectedColumn] = useState<Column | null>(null);
+
   // --- 4. 데이터 연동 (useEffect 연쇄) ---
 
   const fetchProjectData = useCallback(
@@ -184,7 +185,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       setIsLoadingData(true);
       try {
         console.log(`[Phase 2] 🚀 프로젝트 로드 시작 (Workspace: ${workspaceId})`);
-        // 💡 수정됨: mockFetchProjects가 ListResponse를 반환하므로 .items에 접근합니다.
         const projectListResponse = await mockFetchProjects(workspaceId, accessToken);
         const projectList = projectListResponse.items || [];
 
@@ -214,7 +214,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         avatar: 'P',
       });
 
-      // 💡 수정됨: mockFetchWorkspaces가 ListResponse를 반환하므로 .items에 접근합니다.
       const workspaceListResponse = await mockFetchWorkspaces(accessToken);
       const loadedWorkspaces = workspaceListResponse.items || [];
       setWorkspaces(loadedWorkspaces);
@@ -222,9 +221,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       if (loadedWorkspaces.length > 0) {
         const defaultWorkspace = loadedWorkspaces[0];
         setSelectedWorkspace(defaultWorkspace);
-        // fetchProjectData는 selectedWorkspace의 변경을 통해 실행되거나, 직접 호출해야 합니다.
-        // 여기서는 명시적 호출 대신, useEffect의 의존성 체인에 의존합니다. (cleaner approach)
-        // 만약 바로 로드해야 한다면 await fetchProjectData(defaultWorkspace.id); 를 사용합니다.
       }
     } catch (err) {
       console.error('❌ API Data Fetch failed:', err);
@@ -246,7 +242,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         fetchProjectData(selectedWorkspace.id);
       }
     }
-  }, [selectedWorkspace, fetchProjectData, selectedProject]); // selectedProject를 의존성에 추가
+  }, [selectedWorkspace, fetchProjectData, selectedProject]);
 
   // 프로젝트 변경 시 칸반 보드 리로드
   useEffect(() => {
@@ -266,7 +262,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       .finally(() => setIsLoadingData(false));
   }, [selectedProject, accessToken]);
 
-  // --- 5. 드래그 앤 드롭 로직 (Mock 데이터 기준) ---
+  // 💡 5. 컬럼 업데이트 핸들러 구현 (모달에서 호출됨)
+  const handleColumnUpdate = (updatedColumn: Column) => {
+    // 💡 Mock: 서버에 저장하는 로직 없이, 로컬 상태만 즉시 갱신합니다.
+    setColumns((prev) => prev.map((col) => (col.id === updatedColumn.id ? updatedColumn : col)));
+    // 💡 TODO: 실제 API 연동 시, 여기서 컬럼 업데이트 API (PATCH /api/projects/{id}/columns/{id}) 호출 필요
+    console.log(`[Mock] 컬럼 제목 업데이트 완료: ${updatedColumn.title}`);
+  };
+
+  // --- 6. 드래그 앤 드롭 로직 (Mock 데이터 기준) ---
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [draggedFromColumn, setDraggedFromColumn] = useState<string | null>(null);
 
@@ -307,7 +311,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
 
   const columnColors = ['bg-blue-500', 'bg-yellow-500', 'bg-purple-500', 'bg-green-500'];
 
-  // --- 6. Workspace 검색 필터링 로직 ---
+  // --- 7. Workspace 검색 필터링 로직 ---
   const filteredWorkspaces = workspaces.filter((ws) => {
     if (!workspaceSearchQuery.trim()) {
       return true;
@@ -354,7 +358,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     );
   }
 
-  // --- 7. UI 렌더링 ---
+  // --- 8. UI 렌더링 ---
   return (
     <div className={`min-h-screen ${theme.colors.background}`}>
       {/* 백그라운드 패턴 */}
@@ -570,7 +574,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       {/* 칸반 보드 */}
       <div className="p-3 sm:p-6 relative z-10">
         <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 lg:overflow-x-auto pb-4">
-          {/* 💡 수정됨: API에서 로드된 columns를 사용 */}
           {columns.map((column, idx) => (
             <div
               key={column.id}
@@ -584,8 +587,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 <div
                   className={`flex items-center justify-between mb-3 sm:mb-4 pb-2 ${theme.effects.cardBorderWidth} ${theme.colors.border} border-t-0 border-l-0 border-r-0`}
                 >
+                  {/* 💡 컬럼 제목 클릭 시 모달 열기 */}
                   <h3
-                    className={`font-bold ${theme.colors.text} flex items-center gap-2 ${theme.font.size.xs}`}
+                    onClick={() => setSelectedColumn(column)}
+                    className={`font-bold ${theme.colors.text} flex items-center gap-2 ${theme.font.size.xs} cursor-pointer hover:underline`}
                   >
                     <span
                       className={`w-3 h-3 sm:w-4 sm:h-4 ${
@@ -610,7 +615,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                       <div
                         draggable
                         onDragStart={() => handleDragStart(task, column.id)}
-                        onClick={() => setSelectedTask(task)}
+                        onClick={() => setSelectedTask(task)} // 💡 태스크 클릭 시 모달 열기
                         className={`relative ${theme.colors.card} p-3 sm:p-4 ${theme.effects.cardBorderWidth} ${theme.colors.border} hover:border-blue-500 transition cursor-pointer ${theme.effects.borderRadius}`}
                       >
                         <h4
@@ -625,7 +630,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                             {task.assignee_id ? task.assignee_id[0].toUpperCase() : '?'}
                           </div>
                           <span className={`${theme.font.size.xs} truncate ${theme.colors.text}`}>
-                            {task.assignee}
+                            {task.assignee || '미배정'}
                           </span>
                         </div>
                       </div>
@@ -634,6 +639,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                   <div className="relative">
                     <button
                       className={`relative w-full py-3 sm:py-4 ${theme.effects.cardBorderWidth} border-dashed ${theme.colors.border} ${theme.colors.card} hover:bg-gray-100 transition flex items-center justify-center gap-2 ${theme.font.size.xs} ${theme.effects.borderRadius}`}
+                      onClick={() =>
+                        setSelectedTask({
+                          id: '',
+                          title: '',
+                          assignee_id: '',
+                          status: 'NEW',
+                          assignee: '',
+                        })
+                      }
                     >
                       <Plus className="w-3 h-3 sm:w-4 sm:h-4" style={{ strokeWidth: 3 }} />
                       태스크 추가
@@ -660,6 +674,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       )}
       {selectedTask && (
         <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
+      )}
+
+      {/* 💡 Column Detail Modal 렌더링 */}
+      {selectedColumn && (
+        <ColumnDetailModal
+          column={selectedColumn}
+          onClose={() => setSelectedColumn(null)}
+          onUpdate={handleColumnUpdate} // 💡 갱신 핸들러 연결
+        />
       )}
     </div>
   );

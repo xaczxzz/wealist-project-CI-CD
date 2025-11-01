@@ -1,4 +1,5 @@
 export interface Task {
+  [key: string]: any;
   id: string;
   title: string;
   assignee_id: string | null;
