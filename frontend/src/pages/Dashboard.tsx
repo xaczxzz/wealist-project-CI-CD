@@ -19,8 +19,8 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import UserProfileModal from '../components/modals/UserProfileModal';
 import TaskDetailModal from '../components/modals/TaskDetailModal';
-import ColumnDetailModal from '../components/modals/ColumnDetailModal';
 import { UserProfile } from '../types';
+import { ProjectManageModal } from '../components/modals/ProjectManageModal';
 
 // --- 1. API 스펙에 맞춘 Mock 데이터 타입 정의 ---
 interface WorkspaceResponse {
@@ -159,9 +159,41 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
 };
 // ----------------------------------------------------
 
+// 💡 Mock Avatars for the stack display (Header)
+const mockHeaderAvatars = ['김', '박', '이', '최']; // 4 members total
+
+// Avatar Stack Component Logic:
+const AvatarStack: React.FC = () => (
+  <div className="flex -space-x-1.5 p-1 pr-0 overflow-hidden">
+    {mockHeaderAvatars.slice(0, 3).map((initial, index) => (
+      <div
+        key={index}
+        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white text-white ${
+          index === 0 ? 'bg-indigo-500' : index === 1 ? 'bg-pink-500' : 'bg-green-500'
+        }`}
+        style={{ zIndex: mockHeaderAvatars.length - index }}
+      >
+        {initial}
+      </div>
+    ))}
+    {mockHeaderAvatars.length > 3 && (
+      <div
+        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white bg-gray-400 text-white`}
+        style={{ zIndex: 0 }}
+      >
+        +{mockHeaderAvatars.length - 3}
+      </div>
+    )}
+  </div>
+);
+// ----------------------------------------------------
+
 const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) => {
   const { theme } = useTheme();
 
+  // 💡 Mock: 로그인한 사용자의 프로젝트 역할 (ORG: 조직장, OP: 운영자, VIEW: 비운영자)
+  // const [currentRole, setCurrentRole] = useState<'ORGANIZER' | 'OPERATOR' | 'VIEWER'>('OPERATOR');
+  const currentRole = useRef<'ORGANIZER' | 'OPERATOR' | 'VIEWER'>('OPERATOR');
   // --- 3. 상태 관리 (API 연동) ---
   const [workspaces, setWorkspaces] = useState<WorkspaceResponse[]>([]);
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
@@ -177,16 +209,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
   });
 
   // UI 상태
-  // const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
-  // const [dataError, setDataError] = useState<string | null>(null);
-
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const [showWorkspaceSelector, setShowWorkspaceSelector] = useState<boolean>(false);
   const [showProjectSelector, setShowProjectSelector] = useState<boolean>(false);
   const [showUserProfile, setShowUserProfile] = useState<boolean>(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [selectedColumn, setSelectedColumn] = useState<Column | null>(null);
-
+  // const [selectedColumn, setSelectedColumn] = useState<Column | null>(null); // 컬럼 상세는 사용하지 않지만 상태는 유지
+  const [showManangeModal, setShowManageModal] = useState<'PROJECT' | 'WORKSPACE' | false>(false); // 💡 조직원 모달 상태 추가
   // Ref for Menu/Selector
   const userMenuRef = useRef<HTMLDivElement>(null);
   const workspaceSelectorRef = useRef<HTMLDivElement>(null);
@@ -274,10 +303,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
       });
   }, [selectedProject, accessToken]);
 
-  const handleColumnUpdate = (updatedColumn: Column) => {
-    setColumns((prev) => prev.map((col) => (col.id === updatedColumn.id ? updatedColumn : col)));
-    console.log(`[Mock] 컬럼 제목 업데이트 완료: ${updatedColumn.title}`);
-  };
+  // const handleColumnUpdate = (updatedColumn: Column) => {
+  //   setColumns((prev) => prev.map((col) => (col.id === updatedColumn.id ? updatedColumn : col)));
+  //   console.log(`[Mock] 컬럼 제목 업데이트 완료: ${updatedColumn.title}`);
+  // };
 
   // --- 6. 드래그 앤 드롭 로직 (Mock 데이터 기준) ---
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -357,6 +386,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
   const currentWorkspaceInitial = selectedWorkspace?.name.slice(0, 1) || 'W';
   const sidebarWidth = 'w-16 sm:w-20'; // 사이드바 너비 정의 (예: w-20 = 5rem = 80px)
 
+  // 프로젝트 조직원 관리 버튼 활성화 여부
+  const canManageMembers =
+    currentRole.current === 'ORGANIZER' || currentRole.current === 'OPERATOR';
+
   // --- 8. UI 렌더링 ---
   return (
     <div className={`min-h-screen flex ${theme.colors.background} relative`}>
@@ -369,7 +402,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
           backgroundSize: '20px 20px',
         }}
       ></div>
-
       {/* 1. 💡 왼쪽 사이드바 (Fixed Navigation) */}
       <aside
         className={`${sidebarWidth} fixed top-0 left-0 h-full flex flex-col justify-between ${theme.colors.primary} text-white shadow-xl z-50 flex-shrink-0`}
@@ -425,7 +457,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
         </div>
 
         {/* 1-3. 계정/유저 메뉴 (하단) */}
-        <div className={`py-3 px-2 border-t border-blue-700`}>
+        <div className={`py-3 px-2 border-t border-gray-700`}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
             className={`w-full flex items-center justify-center py-2 text-sm rounded-lg hover:bg-blue-600 transition relative`}
@@ -439,7 +471,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
           </button>
         </div>
       </aside>
-
       {/* 2. Workspace Selector Overlay (Fixed) */}
       {showWorkspaceSelector && (
         <>
@@ -457,7 +488,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
                 <h2 className="font-bold text-lg text-black">워크스페이스</h2>
                 <button
                   onClick={() => setShowWorkspaceSelector(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -492,23 +523,26 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
                 <button className="w-full px-3 py-2 text-left text-blue-500 text-sm flex items-center gap-2 hover:bg-gray-100 rounded transition">
                   <Plus className="w-4 h-4" /> 새로운 워크스페이스 생성
                 </button>
-                <button className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-100 rounded transition text-gray-700">
-                  <Settings className="w-4 h-4 text-gray-500" /> 워크스페이스 설정
+                <button
+                  onClick={() => {
+                    setShowManageModal('WORKSPACE'); // 💡 모달 열기
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-100 rounded transition text-gray-700"
+                >
+                  <Settings className="w-4 h-4 text-gray-500" /> 워크스페이스 관리
                 </button>
               </div>
             </div>
           </div>
         </>
       )}
-
       {/* 3. 메인 콘텐츠 영역 (사이드바만큼 margin/padding으로 공간 확보) */}
       <div
         className="flex-grow flex flex-col relative z-10"
         style={{ marginLeft: sidebarWidth, minHeight: '100vh' }}
       >
-        {/* 3-1. Header (Fixed, 전체 100% width of main content area) */}
         <header
-          className={`fixed top-0 left-0 h-16 flex items-center justify-between px-6 sm:px-28 py-2 sm:py-3 ${theme.colors.card} shadow-md z-20 w-full`}
+          className={`fixed top-0 left-0 h-16 flex items-center justify-between px-6 sm:pl-28 sm:pr-4 py-2 sm:py-3 ${theme.colors.card} shadow-md z-20 w-full`}
           style={{
             boxShadow: theme.effects.headerShadow,
             width: `calc(100% - ${sidebarWidth})`,
@@ -534,7 +568,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
             {showProjectSelector && (
               <div
                 ref={projectSelectorRef}
-                className={`absolute top-full -left-4 mt-3 w-80 ${theme.colors.card} ${theme.effects.cardBorderWidth} ${theme.colors.border} z-50 ${theme.effects.borderRadius}`}
+                className={`absolute top-full -left-4 mt-1 w-80 ${theme.colors.card} ${theme.effects.cardBorderWidth} ${theme.colors.border} z-50 ${theme.effects.borderRadius}`}
                 style={{ boxShadow: theme.effects.shadow }}
               >
                 <div className="p-3 max-h-80 overflow-y-auto">
@@ -558,16 +592,35 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
                     </button>
                   ))}
                 </div>
-                <div className="pt-2 border-t">
+                <div className="pt-2 pb-2 border-t">
                   <button className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 text-blue-500 hover:bg-gray-100 rounded-b-lg transition">
                     <Plus className="w-4 h-4" /> 새 프로젝트 생성
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowManageModal('PROJECT'); // 💡 모달 열기
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-100 rounded transition text-gray-700"
+                  >
+                    <Settings className="w-4 h-4 text-gray-500" /> 프로젝트 관리
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* 우측의 검색 및 추가 버튼은 제거됨 */}
+          {/* 💡 프로젝트 조직원 관리 (아바타 스택으로 대체) */}
+          {selectedProject && (
+            <button
+              // onClick={() => setShowMemberModal(true)}
+              className={`flex items-center gap-2 p-1 rounded-lg transition ${
+                canManageMembers ? 'hover:bg-blue-100' : 'hover:bg-gray-100'
+              }`}
+              title={canManageMembers ? '조직원 초대 및 설정' : '조직원 목록 보기'}
+            >
+              <AvatarStack />
+            </button>
+          )}
         </header>
 
         {/* 3-2. 칸반 보드 (스크롤 가능한 메인 콘텐츠) */}
@@ -586,10 +639,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
                     className={`relative ${theme.effects.cardBorderWidth} ${theme.colors.border} p-3 sm:p-4 ${theme.colors.card} ${theme.effects.borderRadius}`}
                   >
                     <div
-                      className={`flex items-center justify-between mb-3 sm:mb-4 pb-2 ${theme.effects.cardBorderWidth} ${theme.colors.border} border-t-0 border-l-0 border-r-0`}
+                      // 💡 컬럼 아래의 구분선 제거
+                      className={`flex items-center justify-between mb-3 sm:mb-4 pb-2`}
                     >
                       <h3
-                        onClick={() => setSelectedColumn(column)}
+                        // 💡 컬럼 상세 보기 기능 제외
                         className={`font-bold ${theme.colors.text} flex items-center gap-2 ${theme.font.size.xs} cursor-pointer hover:underline`}
                       >
                         <span
@@ -676,10 +730,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
           )}
         </div>
       </div>
-
       {/* 4. 모달 및 드롭다운 */}
-
-      {/* 4-1. 💡 사용자 메뉴 드롭다운 (Slack 스타일 반영) */}
+      {/* 4-1. 사용자 메뉴 드롭다운 */}
       {showUserMenu && (
         <div
           ref={userMenuRef}
@@ -763,18 +815,28 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
           </div>
         </div>
       )}
+      {/* 4-2. 프로필 수정 모달 */}
       {showUserProfile && userProfile && (
         <UserProfileModal user={userProfile} onClose={() => setShowUserProfile(false)} />
       )}
+      {/* 4-3. 태스크 디테일 모달 */}
       {selectedTask && (
         <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
       )}
-
-      {selectedColumn && (
-        <ColumnDetailModal
-          column={selectedColumn}
-          onClose={() => setSelectedColumn(null)}
-          onUpdate={handleColumnUpdate}
+      {showManangeModal === 'PROJECT' && selectedProject && (
+        <ProjectManageModal
+          mode="PROJECT" // 💡 모드 지정
+          targetName={selectedProject.name} // 💡 프로젝트 이름 전달
+          role={currentRole.current}
+          onClose={() => setShowManageModal(false)}
+        />
+      )}
+      {showManangeModal === 'WORKSPACE' && selectedWorkspace && (
+        <ProjectManageModal
+          mode="WORKSPACE" // 💡 모드 지정
+          targetName={selectedWorkspace.name} // 💡 워크스페이스 이름 전달
+          role={currentRole.current}
+          onClose={() => setShowManageModal(false)}
         />
       )}
     </div>
