@@ -542,7 +542,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
         style={{ marginLeft: sidebarWidth, minHeight: '100vh' }}
       >
         <header
-          className={`fixed top-0 left-0 h-16 flex items-center justify-between px-6 sm:pl-28 sm:pr-4 py-2 sm:py-3 ${theme.colors.card} shadow-md z-20 w-full`}
+          className={`fixed top-0 left-0 h-16 flex items-center justify-between pl-20 pr-6 sm:pl-28 sm:pr-4 py-2 sm:py-3 ${theme.colors.card} shadow-md z-20 w-full`}
           style={{
             boxShadow: theme.effects.headerShadow,
             width: `calc(100% - ${sidebarWidth})`,

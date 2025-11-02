@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Plus, X, Search, UserCheck, Users, Briefcase, LayoutGrid } from 'lucide-react'; // Briefcase, LayoutGrid 아이콘 추가
+import { Plus, X, Search, UserCheck, Users, Briefcase, LayoutGrid } from 'lucide-react';
 
 // 💡 새로운 인터페이스: 조직원 상세 (재활용성을 위해 확장)
 interface MemberDetail {
@@ -61,6 +61,20 @@ const getMockProjectStatus = (): ProjectStatus[] => {
       taskCount: 4,
       lastUpdated: '2025-10-15',
     },
+    {
+      id: 'prj-5',
+      name: '신규 채용 프로세스',
+      memberCount: 5,
+      taskCount: 10,
+      lastUpdated: '2025-11-02',
+    },
+    {
+      id: 'prj-6',
+      name: '백엔드 서비스 확장',
+      memberCount: 3,
+      taskCount: 30,
+      lastUpdated: '2025-10-20',
+    },
   ];
 };
 
@@ -74,17 +88,13 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
   const isWorkspaceMode = mode === 'WORKSPACE';
   const isManager = role === 'ORGANIZER' || role === 'OPERATOR';
 
-  // 💡 모달 제목을 모드에 따라 명확히 구분
-  const modalTitle = isWorkspaceMode ? `워크스페이스 관리` : `프로젝트 관리`;
-
   // 💡 탭 상태: GENERAL과 MEMBERSHIP 두 가지로만 유지
-  const initialTab = 'GENERAL'; // 일반 설정으로 시작하도록 변경
+  const initialTab = 'GENERAL';
   const [activeTab, setActiveTab] = useState<'MEMBERSHIP' | 'GENERAL'>(initialTab);
 
   // 💡 Mock 데이터 상태
   const getMockMembers = (): MemberDetail[] => {
     if (isWorkspaceMode) {
-      // 워크스페이스 모드: 모든 조직원 목록 + 역할 설정 기능 제공
       return [
         { id: 'user-1', name: '김조직장', role: 'ORGANIZER', canBeManager: true },
         { id: 'user-2', name: '박운영자', role: 'OPERATOR', canBeManager: true },
@@ -92,11 +102,10 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
         { id: 'user-4', name: '최초대필요', role: 'VIEWER', canBeManager: false },
       ];
     } else {
-      // 프로젝트 모드: 워크스페이스 전체 조직원 중 프로젝트 팀원 여부 표시
       return [
         { id: 'user-1', name: '김개발 (조직장)', role: 'ORGANIZER', isProjectMember: true },
         { id: 'user-2', name: '박보안 (운영자)', role: 'OPERATOR', isProjectMember: true },
-        { id: 'user-3', name: '이디자인', role: 'VIEWER', isProjectMember: false }, // 프로젝트 미참여
+        { id: 'user-3', name: '이디자인', role: 'VIEWER', isProjectMember: false },
         { id: 'user-4', name: '최데브옵스', role: 'VIEWER', isProjectMember: true },
       ];
     }
@@ -104,8 +113,8 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
   const [members, setMembers] = useState<MemberDetail[]>(getMockMembers());
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 💡 프로젝트 현황 상태 추가 (워크스페이스 관리자용)
-  const [projectStatus, _setProjectStatus] = useState<ProjectStatus[]>(getMockProjectStatus());
+  // 💡 프로젝트 현황 상태는 useRef로 유지
+  const projectStatus = useRef<ProjectStatus[]>(getMockProjectStatus());
 
   const filteredMembers = members.filter((member) =>
     member.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -152,7 +161,7 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
     }
   };
 
-  // 💡 멤버 목록 렌더링 컴포넌트 (변경 없음)
+  // 💡 멤버 목록 렌더링 컴포넌트 (스크롤 영역 최적화)
   const MemberListContent = () => (
     <>
       <h3 className="text-sm font-semibold text-gray-600 mb-2">
@@ -248,7 +257,7 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
     </>
   );
 
-  // 💡 일반 설정 탭 내용 (통합 로직 반영)
+  // 💡 일반 설정 탭 내용 (통합 로직 반영 및 UI 정리)
   const GeneralSettingsContent = () => {
     // 프로젝트 모드일 때의 칸반 현황 Mock 데이터 (일반 설정 탭 내에서만 사용)
     const mockKanbanSummary = [
@@ -259,7 +268,7 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
     ];
 
     return (
-      <div className="space-y-6 pt-2">
+      <div className="space-y-6">
         {/* 1. 기본 정보 섹션 */}
         <div className="p-4 bg-gray-50 rounded-lg border space-y-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -280,16 +289,18 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
           />
         </div>
 
-        {/* 2. 현황 정보 섹션 (모드별 구분) */}
+        {/* 2. 현황 정보 섹션 (모드별 구분) - 💡 섹션 구분을 위한 border-t 제거 */}
         {isWorkspaceMode ? (
           /* 워크스페이스 모드: 프로젝트 현황 목록 */
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-4">
             <h3 className="text-md font-bold text-gray-800 mb-3">
               <Briefcase className="w-5 h-5 inline mr-2 text-blue-500" />
-              프로젝트 현황 (총 {projectStatus.length}개)
+              프로젝트 현황 (총 {projectStatus.current.length}개)
             </h3>
-            <div className="max-h-60 overflow-y-auto space-y-3 p-1 -m-1">
-              {projectStatus.map((project) => (
+            <div className="max-h-80 overflow-y-auto space-y-3 p-1 -m-1">
+              {' '}
+              {/* 💡 max-h-80으로 확장 */}
+              {projectStatus.current.map((project) => (
                 <div
                   key={project.id}
                   className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm"
@@ -311,7 +322,7 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
           </div>
         ) : (
           /* 프로젝트 모드: 칸반 현황 (컬럼별 태스크 개수) */
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-4">
             <h3 className="text-md font-bold text-gray-800 mb-3">
               <LayoutGrid className="w-5 h-5 inline mr-2 text-blue-500" />
               현재 칸반 현황 (컬럼별 태스크 개수)
@@ -336,10 +347,12 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
           </div>
         )}
 
-        {/* 3. 저장 버튼 */}
-        <button className="w-full py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition">
-          {isWorkspaceMode ? '워크스페이스 저장' : '프로젝트 저장'}
-        </button>
+        {/* 3. 저장 버튼 - 💡 저장 버튼 위에는 다시 구분선 추가 (이전에 반영됨) */}
+        <div className="pt-6 border-t border-gray-200">
+          <button className="w-full py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition">
+            {isWorkspaceMode ? '워크스페이스 저장' : '프로젝트 저장'}
+          </button>
+        </div>
       </div>
     );
   };
@@ -349,13 +362,39 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[90]"
       onClick={onClose}
     >
+      {/* 💡 모달 크기: max-w-lg 유지 */}
       <div className="relative w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div
           className={`relative ${theme.colors.card} ${theme.effects.borderWidth} ${theme.colors.border} p-6 ${theme.effects.borderRadius} shadow-xl`}
         >
-          {/* 모달 헤더 - 💡 border-b 제거 */}
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-lg text-gray-800">{modalTitle}</h2>
+          {/* 💡 헤더/탭 구조 통합 및 제목 제거 (이전 요청사항 반영) */}
+          <div className="flex items-center justify-between mb-4 border-b border-gray-200 -mt-4 -mx-6 px-6 pt-4">
+            {' '}
+            {/* 탭/닫기 버튼 영역을 모달 상단에 붙임 */}
+            <div className="flex">
+              {/* 탭 버튼 */}
+              <button
+                onClick={() => setActiveTab('GENERAL')}
+                className={`py-2 px-4 text-sm font-semibold transition ${
+                  activeTab === 'GENERAL'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                일반 설정 &amp; 현황
+              </button>
+              <button
+                onClick={() => setActiveTab('MEMBERSHIP')}
+                className={`py-2 px-4 text-sm font-semibold transition ${
+                  activeTab === 'MEMBERSHIP'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {isWorkspaceMode ? '조직원/역할 관리' : '회원 관리'}
+              </button>
+            </div>
+            {/* 닫기 버튼 */}
             <button
               onClick={onClose}
               className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700"
@@ -364,35 +403,12 @@ export const ProjectManageModal: React.FC<ProjectManageModalProps> = ({
             </button>
           </div>
 
-          {/* 💡 탭 네비게이션: GENERAL과 MEMBERSHIP만 남김 */}
-          <div className="flex mb-4 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('GENERAL')}
-              className={`py-2 px-4 text-sm font-semibold transition ${
-                activeTab === 'GENERAL'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              일반 설정 &amp; 현황
-            </button>
-            <button
-              onClick={() => setActiveTab('MEMBERSHIP')}
-              className={`py-2 px-4 text-sm font-semibold transition ${
-                activeTab === 'MEMBERSHIP'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {isWorkspaceMode ? '조직원/역할 관리' : '회원 관리'}
-            </button>
-          </div>
-
-          {/* 💡 모달 본문 내용 */}
+          {/* 💡 모달 본문 내용 (탭 구조 변경으로 인해 mb-4 제거) */}
           <div className="space-y-4">
+            {' '}
+            {/* 탭 하단 경계선과 본문 사이 간격 조정 */}
             {/* 일반 설정 및 현황 탭 내용 */}
             {activeTab === 'GENERAL' && <GeneralSettingsContent />}
-
             {/* 멤버십 탭 (워크스페이스 조직원 관리, 프로젝트 팀원 관리) */}
             {activeTab === 'MEMBERSHIP' && (
               <div className="space-y-4">
