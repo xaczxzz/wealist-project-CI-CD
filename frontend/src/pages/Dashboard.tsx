@@ -677,31 +677,90 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
         </div>
       </div>
 
-      {/* 모달 */}
+      {/* 4. 모달 및 드롭다운 */}
+
+      {/* 4-1. 💡 사용자 메뉴 드롭다운 (Slack 스타일 반영) */}
       {showUserMenu && (
         <div
           ref={userMenuRef}
-          className={`absolute bottom-20 left-20 w-48 sm:w-56 ${theme.colors.card} ${theme.effects.cardBorderWidth} ${theme.colors.border} z-50 ${theme.effects.borderRadius}`}
+          // 사이드바 옆, 하단 아바타 버튼 위에 위치하도록 조정
+          className={`absolute bottom-16 left-12 sm:left-16 w-64 ${theme.colors.card} ${theme.effects.cardBorderWidth} ${theme.colors.border} z-50 ${theme.effects.borderRadius} shadow-2xl`}
           style={{ boxShadow: theme.effects.shadow }}
         >
-          <div className={`px-3 sm:px-4 py-2 sm:py-3 ${theme.colors.primary} text-white`}>
-            <p className={`font-bold ${theme.font.size.xs}`}>{userProfile.email}</p>
+          {/* 1. 사용자 정보 및 상태 업데이트 영역 */}
+          <div className="p-3 pb-3 mb-2 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              {/* 아바타 (w-10 h-10은 사이드바 아바타 크기와 동일) */}
+              <div
+                className={`w-10 h-10 ${theme.colors.primary} flex items-center justify-center text-white text-base font-bold rounded-md`}
+              >
+                {userProfile.avatar}
+              </div>
+              {/* 이름 및 상태 */}
+              <div>
+                <h3 className="font-bold text-lg text-gray-900">{userProfile.name}</h3>
+                <div className="flex items-center text-green-600 text-xs mt-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                  대화 가능
+                </div>
+              </div>
+            </div>
+
+            {/* 상태 업데이트 버튼 */}
+            <button
+              // 이 버튼은 실제 UserProfileModal의 상태 업데이트 기능을 호출하지 않고, 메뉴 내의 액션만 시뮬레이션합니다.
+              onClick={() => console.log('상태 업데이트 모달 열기')}
+              className="w-full mt-4 flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-200 transition text-sm"
+            >
+              <span role="img" aria-label="smiley" className="mr-2 text-base">
+                😊
+              </span>
+              상태 업데이트
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setShowUserProfile(true);
-              setShowUserMenu(false);
-            }}
-            className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-gray-100 transition text-black text-sm`}
-          >
-            프로필
-          </button>
-          <button
-            className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left bg-red-500 hover:bg-red-600 transition text-white text-sm rounded-b-lg`}
-            onClick={onLogout}
-          >
-            로그아웃
-          </button>
+
+          {/* 2. 고정 메뉴 항목 */}
+          <div className="space-y-1 pb-3 mb-2 border-b border-gray-200">
+            {/* 알림 일시 중지 */}
+            <button
+              onClick={() => console.log('알림 일시 중지')}
+              className="w-full text-left flex items-center justify-between px-2 py-1.5 text-sm text-gray-800 hover:bg-blue-50 hover:text-blue-700 rounded transition"
+            >
+              알림 일시 중지
+              <span className="text-gray-500 text-xs pt-1">켜기 &gt;</span>
+            </button>
+          </div>
+
+          {/* 3. 프로필/설정/로그아웃 (하단) */}
+          <div className="space-y-1 p-2 pt-0">
+            {/* 프로필 (UserProfileModal 열기) */}
+            <button
+              onClick={() => {
+                setShowUserProfile(true); // 프로필 수정 모달 열기
+                setShowUserMenu(false);
+              }}
+              className="w-full text-left px-2 py-1.5 text-sm text-gray-800 hover:bg-blue-50 hover:text-blue-700 rounded transition font-semibold"
+            >
+              프로필
+            </button>
+            {/* 환경 설정 */}
+            <button
+              onClick={() => console.log('환경 설정 페이지/모달 열기')}
+              className="w-full text-left px-2 py-1.5 text-sm text-gray-800 hover:bg-blue-50 hover:text-blue-700 rounded transition font-semibold"
+            >
+              환경 설정
+            </button>
+          </div>
+
+          <div className="pt-2 pb-2 border-t border-gray-200 mx-2">
+            {/* 로그아웃 */}
+            <button
+              onClick={onLogout} // MainDashboard의 onLogout 함수 호출
+              className="w-full text-left px-2 py-1.5 text-sm text-gray-800 hover:bg-red-50 hover:text-red-700 rounded transition"
+            >
+              워크스페이스에서 로그아웃
+            </button>
+          </div>
         </div>
       )}
       {showUserProfile && userProfile && (
