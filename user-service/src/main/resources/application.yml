@@ -26,6 +26,29 @@ spring:
       port: ${SPRING_REDIS_PORT:6379}
       password: ${SPRING_REDIS_PASSWORD:}
 
+  # ====================================
+  # 🔐 Google OAuth2 설정
+  # ====================================
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - email
+              - profile
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            client-name: Google
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -40,13 +63,16 @@ server:
     whitelabel.enabled: false
     include-exception: true
 
-
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiration-ms: ${JWT_EXPIRATION_MS}
   refresh-token-expiration-ms: ${JWT_ACCESS_MS}
 
+# OAuth2 설정
+oauth2:
+  redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:3000/oauth/callback}
+
 logging:
   level:
-    OrangeCloud: DEBUG # 애플리케이션 패키지 로깅 레벨
+    OrangeCloud: DEBUG
     org.springframework.security: DEBUG
