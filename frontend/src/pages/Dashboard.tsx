@@ -1,26 +1,22 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  // Menu,
-  // User,
   ChevronDown,
   Plus,
-  MoreVertical,
+  // MoreVertical,
   X,
-  // Search,
   Home,
   Bell,
   MessageSquare,
   Briefcase,
   Settings,
-  // Edit,
-  // AlignLeft,
   File,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import UserProfileModal from '../components/modals/UserProfileModal';
-import TaskDetailModal from '../components/modals/TaskDetailModal';
 import { UserProfile } from '../types';
 import { ProjectManageModal } from '../components/modals/ProjectManageModal';
+import { KanbanWithCustomFields } from '../types/kanban';
+import KanbanDetailModal from '../components/modals/KanbanDetailModal';
 
 // --- 1. API 스펙에 맞춘 Mock 데이터 타입 정의 ---
 interface WorkspaceResponse {
@@ -33,7 +29,7 @@ interface ProjectResponse {
   name: string;
   workspace_id: string;
 }
-interface Task {
+interface Kanban {
   id: string;
   title: string;
   assignee_id: string | null;
@@ -43,7 +39,7 @@ interface Task {
 interface Column {
   id: string;
   title: string;
-  tasks: Task[];
+  kanbans: KanbanWithCustomFields[];
 }
 // -------------------------------------------------
 
@@ -93,13 +89,22 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
   console.log(`[Mock] API: 칸반 보드 로드 (Project: ${projectId})`);
   await new Promise((resolve) => setTimeout(resolve, 400));
 
-  const baseTasks: Task[] = [
+  // 💡 기존 Kanban Mock 데이터에 customFieldValues 추가
+  const baseTasks: KanbanWithCustomFields[] = [
     {
       id: 't-1',
       title: `[${projectId.slice(0, 5)}] 인증 API 개발`,
       assignee_id: 'user-1',
       status: 'BACKEND',
       assignee: '김개발',
+      dueDate: '2026-01-15', // 추가 필드
+      priority: 'HIGH', // 추가 필드
+      customFieldValues: {
+        'cf-status': 'IN PROGRESS', // 커스텀 진행단계
+        'cf-role': '백엔드', // 관련 역할
+        'cf-sprint': 2,
+        'cf-review': '박보안',
+      },
     },
     {
       id: 't-2',
@@ -107,6 +112,14 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
       assignee_id: 'user-2',
       status: 'BACKEND',
       assignee: '박보안',
+      dueDate: '2026-01-20',
+      priority: 'MEDIUM',
+      customFieldValues: {
+        'cf-status': 'TO DO',
+        'cf-role': '백엔드',
+        'cf-sprint': 2,
+        'cf-review': '김조직장',
+      },
     },
     {
       id: 't-3',
@@ -114,6 +127,14 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
       assignee_id: 'user-3',
       status: 'FRONTEND',
       assignee: '이디자인',
+      dueDate: '2026-01-25',
+      priority: 'LOW',
+      customFieldValues: {
+        'cf-status': 'QA',
+        'cf-role': '프론트엔드',
+        'cf-sprint': 1,
+        'cf-review': '김개발',
+      },
     },
     {
       id: 't-4',
@@ -121,6 +142,12 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
       assignee_id: 'user-4',
       status: 'DEVOPS',
       assignee: '최데브옵스',
+      customFieldValues: {
+        'cf-status': 'TO DO',
+        'cf-role': '백엔드',
+        'cf-sprint': 3,
+        'cf-review': '김조직장',
+      },
     },
     {
       id: 't-5',
@@ -128,6 +155,12 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
       assignee_id: 'user-1',
       status: 'DONE',
       assignee: '김개발',
+      customFieldValues: {
+        'cf-status': 'TO DO',
+        'cf-role': '백엔드',
+        'cf-sprint': 1,
+        'cf-review': '박운영자',
+      },
     },
     {
       id: 't-6',
@@ -135,6 +168,12 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
       assignee_id: 'user-3',
       status: 'FRONTEND',
       assignee: '이디자인',
+      customFieldValues: {
+        'cf-status': 'IN PROGRESS',
+        'cf-role': '프론트엔드',
+        'cf-sprint': 2,
+        'cf-review': '김개발',
+      },
     },
   ];
 
@@ -142,19 +181,19 @@ const mockFetchKanbanBoard = async (projectId: string, _token: string): Promise<
     {
       id: 'BACKEND',
       title: '백엔드 (Backend)',
-      tasks: baseTasks.filter((t) => t.status === 'BACKEND'),
+      kanbans: baseTasks.filter((t) => t.status === 'BACKEND'),
     },
     {
       id: 'FRONTEND',
       title: '프론트엔드 (Frontend)',
-      tasks: baseTasks.filter((t) => t.status === 'FRONTEND'),
+      kanbans: baseTasks.filter((t) => t.status === 'FRONTEND'),
     },
     {
       id: 'DEVOPS',
       title: '인프라 (DevOps)',
-      tasks: baseTasks.filter((t) => t.status === 'DEVOPS'),
+      kanbans: baseTasks.filter((t) => t.status === 'DEVOPS'),
     },
-    { id: 'DONE', title: '완료 (Done)', tasks: baseTasks.filter((t) => t.status === 'DONE') },
+    { id: 'DONE', title: '완료 (Done)', kanbans: baseTasks.filter((t) => t.status === 'DONE') },
   ];
 };
 // ----------------------------------------------------
@@ -187,6 +226,58 @@ const AvatarStack: React.FC = () => (
   </div>
 );
 // ----------------------------------------------------
+interface AssigneeAvatarStackProps {
+  assignees: string | string[]; // 담당자 이름 목록 (쉼표로 구분된 문자열 또는 배열)
+}
+
+// 💡 Assignee Avatar Stack Component Logic:
+const AssigneeAvatarStack: React.FC<AssigneeAvatarStackProps> = ({ assignees }) => {
+  const assigneeList = Array.isArray(assignees)
+    ? assignees
+    : (assignees as string)
+        .split(',')
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0);
+
+  const initials = assigneeList.map((name) => name[0]).filter((i) => i);
+  const displayCount = 3;
+
+  if (initials.length === 0) {
+    return (
+      <div
+        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-gray-200 bg-gray-200 text-gray-700`}
+      >
+        ?
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex -space-x-1 p-1 pr-0 overflow-hidden">
+      {initials.slice(0, displayCount).map((initial, index) => (
+        <div
+          key={index}
+          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white text-white ${
+            index === 0 ? 'bg-indigo-500' : index === 1 ? 'bg-pink-500' : 'bg-green-500'
+          }`}
+          style={{ zIndex: initials.length - index }}
+          title={assigneeList[index]}
+        >
+          {initial}
+        </div>
+      ))}
+      {initials.length > displayCount && (
+        <div
+          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white bg-gray-400 text-white`}
+          style={{ zIndex: 0 }}
+          title={`${initials.length - displayCount}명 외`}
+        >
+          +{initials.length - displayCount}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) => {
   const { theme } = useTheme();
@@ -213,8 +304,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
   const [showWorkspaceSelector, setShowWorkspaceSelector] = useState<boolean>(false);
   const [showProjectSelector, setShowProjectSelector] = useState<boolean>(false);
   const [showUserProfile, setShowUserProfile] = useState<boolean>(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  // const [selectedColumn, setSelectedColumn] = useState<Column | null>(null); // 컬럼 상세는 사용하지 않지만 상태는 유지
+  const [selectedKanban, setSelectedKanban] = useState<KanbanWithCustomFields | null>(null);
+
   const [showManangeModal, setShowManageModal] = useState<'PROJECT' | 'WORKSPACE' | false>(false); // 💡 조직원 모달 상태 추가
   // Ref for Menu/Selector
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -309,11 +400,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
   // };
 
   // --- 6. 드래그 앤 드롭 로직 (Mock 데이터 기준) ---
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [draggedKanban, setDraggedKanban] = useState<KanbanWithCustomFields | null>(null);
   const [draggedFromColumn, setDraggedFromColumn] = useState<string | null>(null);
 
-  const handleDragStart = (task: Task, columnId: string): void => {
-    setDraggedTask(task);
+  const handleDragStart = (task: Kanban, columnId: string): void => {
+    setDraggedKanban(task);
     setDraggedFromColumn(columnId);
   };
 
@@ -322,29 +413,29 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
   };
 
   const handleDrop = (targetColumnId: string): void => {
-    if (!draggedTask || !draggedFromColumn || draggedFromColumn === targetColumnId) return;
+    if (!draggedKanban || !draggedFromColumn || draggedFromColumn === targetColumnId) return;
 
-    const updatedTask: Task = {
-      ...draggedTask,
+    const updatedTask: Kanban = {
+      ...draggedKanban,
       status: targetColumnId,
-      assignee: draggedTask.assignee,
+      assignee: draggedKanban.assignee,
     };
 
     const newColumns = columns.map((col) => {
       if (col.id === draggedFromColumn) {
-        return { ...col, tasks: col.tasks.filter((t) => t.id !== draggedTask.id) };
+        return { ...col, kanbans: col.kanbans.filter((t) => t.id !== draggedKanban.id) };
       }
       if (col.id === targetColumnId) {
-        return { ...col, tasks: [...col.tasks, updatedTask] };
+        return { ...col, kanbans: [...col.kanbans, updatedTask] };
       }
       return col;
     });
 
     setColumns(newColumns);
-    setDraggedTask(null);
+    setDraggedKanban(null);
     setDraggedFromColumn(null);
 
-    console.log(`[Mock] API: Task ${draggedTask.id} 상태를 ${targetColumnId}(으)로 변경 요청`);
+    console.log(`[Mock] API: Kanban ${draggedKanban.id} 상태를 ${targetColumnId}(으)로 변경 요청`);
   };
 
   const columnColors = ['bg-blue-500', 'bg-yellow-500', 'bg-purple-500', 'bg-green-500'];
@@ -638,10 +729,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
                   <div
                     className={`relative ${theme.effects.cardBorderWidth} ${theme.colors.border} p-3 sm:p-4 ${theme.colors.card} ${theme.effects.borderRadius}`}
                   >
-                    <div
-                      // 💡 컬럼 아래의 구분선 제거
-                      className={`flex items-center justify-between mb-3 sm:mb-4 pb-2`}
-                    >
+                    <div className={`flex items-center justify-between pb-2`}>
                       <h3
                         // 💡 컬럼 상세 보기 기능 제외
                         className={`font-bold ${theme.colors.text} flex items-center gap-2 ${theme.font.size.xs} cursor-pointer hover:underline`}
@@ -655,42 +743,43 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
                         <span
                           className={`bg-black text-white px-1 sm:px-2 py-1 ${theme.effects.cardBorderWidth} ${theme.colors.border} text-[8px] sm:text-xs`}
                         >
-                          {column.tasks.length}
+                          {column.kanbans.length}
                         </span>
                       </h3>
-                      <button className={`${theme.colors.text} hover:text-blue-500`}>
+                      {/* <button className={`${theme.colors.text} hover:text-blue-500`}>
                         <MoreVertical
                           className="w-3 h-3 sm:w-4 sm:h-4"
                           style={{ strokeWidth: 3 }}
                         />
-                      </button>
+                      </button> */}
                     </div>
 
                     <div className="space-y-2 sm:space-y-3">
-                      {column.tasks.map((task) => (
-                        <div key={task.id} className="relative">
+                      {column.kanbans.map((kanban) => (
+                        <div key={kanban.id} className="relative">
                           <div
                             draggable
-                            onDragStart={() => handleDragStart(task, column.id)}
-                            onClick={() => setSelectedTask(task)}
+                            onDragStart={() => handleDragStart(kanban, column.id)}
+                            onClick={() => setSelectedKanban(kanban)}
                             className={`relative ${theme.colors.card} p-3 sm:p-4 ${theme.effects.cardBorderWidth} ${theme.colors.border} hover:border-blue-500 transition cursor-pointer ${theme.effects.borderRadius}`}
                           >
-                            <h4
+                            <h3
                               className={`font-bold ${theme.colors.text} mb-2 sm:mb-3 ${theme.font.size.xs} break-words`}
                             >
-                              {task.title}
-                            </h4>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`w-6 h-6 sm:w-8 sm:h-8 ${theme.colors.primary} ${theme.effects.cardBorderWidth} ${theme.colors.border} flex items-center justify-center text-white font-bold text-[8px] sm:text-xs flex-shrink-0 ${theme.effects.borderRadius}`}
-                              >
-                                {task.assignee_id ? task.assignee_id[0].toUpperCase() : '?'}
-                              </div>
-                              <span
-                                className={`${theme.font.size.xs} truncate ${theme.colors.text}`}
-                              >
-                                {task.assignee || '미배정'}
-                              </span>
+                              {kanban.title}
+                            </h3>
+                            <div className="flex items-center justify-between">
+                              {/* 💡 커스텀 필드에서 담당자 값을 가져옵니다. */}
+                              <AssigneeAvatarStack
+                                assignees={
+                                  kanban.customFieldValues?.['cf-assignee'] || kanban.assignee
+                                }
+                              />
+
+                              {/* 💡 상태나 중요도 뱃지 등을 여기에 추가할 수 있습니다. */}
+                              {/* <span className={`${theme.font.size.xs} text-gray-500`}>
+                                {kanban.priority ? `중요도: ${kanban.priority}` : ''}
+                              </span> */}
                             </div>
                           </div>
                         </div>
@@ -699,7 +788,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
                         <button
                           className={`relative w-full py-3 sm:py-4 ${theme.effects.cardBorderWidth} border-dashed ${theme.colors.border} ${theme.colors.card} hover:bg-gray-100 transition flex items-center justify-center gap-2 ${theme.font.size.xs} ${theme.effects.borderRadius}`}
                           onClick={() =>
-                            setSelectedTask({
+                            setSelectedKanban({
                               id: '',
                               title: '',
                               assignee_id: '',
@@ -820,8 +909,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout, accessToken }) 
         <UserProfileModal user={userProfile} onClose={() => setShowUserProfile(false)} />
       )}
       {/* 4-3. 태스크 디테일 모달 */}
-      {selectedTask && (
-        <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
+      {selectedKanban && (
+        <KanbanDetailModal kanban={selectedKanban} onClose={() => setSelectedKanban(null)} />
       )}
       {showManangeModal === 'PROJECT' && selectedProject && (
         <ProjectManageModal
