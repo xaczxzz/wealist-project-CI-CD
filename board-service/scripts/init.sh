@@ -5,9 +5,9 @@ echo "==================================="
 echo "Starting Board Service Initialization"
 echo "==================================="
 
-# Wait for database
+# Wait for database (BOARD_DB_* 환경변수 사용)
 echo "Waiting for PostgreSQL..."
-until PGPASSWORD=$KANBAN_DB_PASSWORD psql -h postgres -U $KANBAN_DB_USER -d $KANBAN_DB_NAME -c '\q' 2>/dev/null; do
+until PGPASSWORD=$BOARD_DB_PASSWORD psql -h postgres -U $BOARD_DB_USER -d $BOARD_DB_NAME -c '\q' 2>/dev/null; do
   echo "PostgreSQL is unavailable - sleeping"
   sleep 1
 done
