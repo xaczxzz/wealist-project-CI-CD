@@ -37,7 +37,7 @@ type WorkspaceService interface {
 type workspaceService struct {
 	repo       repository.WorkspaceRepository
 	roleRepo   repository.RoleRepository
-	userClient *client.UserClient
+	userClient client.UserClient
 	logger     *zap.Logger
 	db         *gorm.DB
 }
@@ -45,7 +45,7 @@ type workspaceService struct {
 func NewWorkspaceService(
 	repo repository.WorkspaceRepository,
 	roleRepo repository.RoleRepository,
-	userClient *client.UserClient,
+	userClient client.UserClient,
 	logger *zap.Logger,
 	db *gorm.DB,
 ) WorkspaceService {
