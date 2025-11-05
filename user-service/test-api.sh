@@ -35,7 +35,8 @@ print_section "Authentication Setup (OAuth2)"
 
 # 1.1 수동으로 Google OAuth2 로그인을 수행하고, 발급받은 JWT Access Token을 아래에 붙여넣으세요.
 # 브라우저 개발자 도구의 네트워크 탭에서 API 요청 헤더를 확인하여 토큰을 복사할 수 있습니다.
-ACCESS_TOKEN="eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIyNTMzZTQ4Ny05Njg4LTRlMGYtODZkOS0yMDFmMzc0ZmY2ZjAiLCJpYXQiOjE3NjIzMDE5NDIsImV4cCI6MTc2MjkwNjc0Mn0.WpQfyC9lk2d76nZQ3t9kn_Jg-eRmlMqF8UxCeQwna77vOYlXjTaeAaYDmK3pXZYijPvB_ZdgtpgoRJc-R6fnXw"
+
+ACCESS_TOKEN=""
 
 if [ -z "$ACCESS_TOKEN" ]; then
     print_error "ACCESS_TOKEN이 비어있습니다. 스크립트를 수정하여 토큰을 직접 설정해주세요."
@@ -269,3 +270,4 @@ curl -s -X DELETE "$BASE_URL/api/users/$USER_ID" \
 print_success "사용자 삭제 요청 완료 (Soft Delete)"
 
 print_section "✅ 모든 테스트 완료!"
+
