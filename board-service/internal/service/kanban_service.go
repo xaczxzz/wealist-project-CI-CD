@@ -28,7 +28,7 @@ type kanbanService struct {
 	projectRepo     repository.ProjectRepository
 	customFieldRepo repository.CustomFieldRepository
 	roleRepo        repository.RoleRepository
-	userClient      *client.UserClient
+	userClient      client.UserClient
 	logger          *zap.Logger
 	db              *gorm.DB
 }
@@ -38,7 +38,7 @@ func NewKanbanService(
 	projectRepo repository.ProjectRepository,
 	customFieldRepo repository.CustomFieldRepository,
 	roleRepo repository.RoleRepository,
-	userClient *client.UserClient,
+	userClient client.UserClient,
 	logger *zap.Logger,
 	db *gorm.DB,
 ) KanbanService {

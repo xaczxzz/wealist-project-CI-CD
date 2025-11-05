@@ -61,6 +61,7 @@ func main() {
 	customFieldRepo := repository.NewCustomFieldRepository(db)
 	kanbanRepo := repository.NewKanbanRepository(db)
 	userOrderRepo := repository.NewUserOrderRepository(db)
+	commentRepo := repository.NewCommentRepository(db) // Add CommentRepository
 
 	// 5.7. Initialize services
 	// Note: customFieldService needs kanbanRepo (for Phase 4 TODO), then injected into projectService
@@ -69,6 +70,7 @@ func main() {
 	workspaceService := service.NewWorkspaceService(workspaceRepo, roleRepo, userClient, log, db)
 	projectService := service.NewProjectService(projectRepo, workspaceRepo, roleRepo, userOrderRepo, customFieldService, userClient, log, db)
 	userOrderService := service.NewUserOrderService(userOrderRepo, projectRepo, customFieldRepo, kanbanRepo, userOrderCache, log)
+	commentService := service.NewCommentService(commentRepo, kanbanRepo, projectRepo, userClient, log, db) // Add CommentService
 
 	// 6. Configure Gin mode
 	if cfg.Server.Env == "prod" {
@@ -98,6 +100,7 @@ func main() {
 		customFieldHandler := handler.NewCustomFieldHandler(customFieldService)
 		kanbanHandler := handler.NewKanbanHandler(kanbanService)
 		userOrderHandler := handler.NewUserOrderHandler(userOrderService)
+		commentHandler := handler.NewCommentHandler(commentService) // Add CommentHandler
 
 		// Workspace routes
 		workspaces := api.Group("/workspaces")
@@ -188,6 +191,15 @@ func main() {
 			kanbans.GET("", kanbanHandler.GetKanbans)
 			kanbans.PUT("/:id", kanbanHandler.UpdateKanban)
 			kanbans.DELETE("/:id", kanbanHandler.DeleteKanban)
+		}
+
+		// Comment routes
+		comments := api.Group("/comments")
+		{
+			comments.POST("", commentHandler.CreateComment)
+			comments.GET("", commentHandler.GetCommentsByKanbanID) // Changed from nested route
+			comments.PUT("/:id", commentHandler.UpdateComment)
+			comments.DELETE("/:id", commentHandler.DeleteComment)
 		}
 	}
 

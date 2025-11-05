@@ -6,16 +6,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
-// UserClient handles communication with User Service
-type UserClient struct {
+// UserClient defines the interface for communicating with the User Service.
+type UserClient interface {
+	GetUser(ctx context.Context, userID string) (*UserInfo, error)
+	GetUsersBatch(ctx context.Context, userIDs []string) ([]UserInfo, error)
+	SearchUsers(ctx context.Context, query string) ([]UserInfo, error)
+	GetSimpleUser(userID string) (*SimpleUser, error)
+	GetSimpleUsers(userIDs []string) ([]SimpleUser, error)
+}
+
+type userClient struct {
 	baseURL string
 	client  *http.Client
 }
 
-// UserInfo represents user information from User Service
+// UserInfo represents detailed user information from User Service.
 type UserInfo struct {
 	UserID   string `json:"userId"`
 	Name     string `json:"name"`
@@ -23,9 +32,16 @@ type UserInfo struct {
 	IsActive bool   `json:"isActive"`
 }
 
-// NewUserClient creates a new User Service client
-func NewUserClient(baseURL string) *UserClient {
-	return &UserClient{
+// SimpleUser represents basic user information needed for display.
+type SimpleUser struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatarUrl"`
+}
+
+// NewUserClient creates a new User Service client.
+func NewUserClient(baseURL string) UserClient {
+	return &userClient{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -33,8 +49,60 @@ func NewUserClient(baseURL string) *UserClient {
 	}
 }
 
+// GetSimpleUser retrieves basic info for a single user.
+func (c *userClient) GetSimpleUser(userID string) (*SimpleUser, error) {
+	// This endpoint might not exist yet in user-service, assuming it will be /api/users/{id}/simple
+	url := fmt.Sprintf("%s/api/users/%s", c.baseURL, userID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for simple user: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get simple user: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("user service returned status %d for simple user", resp.StatusCode)
+	}
+
+	var user SimpleUser
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("failed to decode simple user response: %w", err)
+	}
+	return &user, nil
+}
+
+// GetSimpleUsers retrieves basic info for multiple users.
+func (c *userClient) GetSimpleUsers(userIDs []string) ([]SimpleUser, error) {
+	// This endpoint might not exist yet, assuming /api/users/batch/simple
+	url := fmt.Sprintf("%s/api/users/batch?ids=%s", c.baseURL, strings.Join(userIDs, ","))
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for simple users: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get simple users: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("user service returned status %d for simple users", resp.StatusCode)
+	}
+
+	var users []SimpleUser
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return nil, fmt.Errorf("failed to decode simple users response: %w", err)
+	}
+	return users, nil
+}
+
 // GetUser retrieves a single user by ID
-func (c *UserClient) GetUser(ctx context.Context, userID string) (*UserInfo, error) {
+func (c *userClient) GetUser(ctx context.Context, userID string) (*UserInfo, error) {
 	url := fmt.Sprintf("%s/api/users/%s", c.baseURL, userID)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -61,7 +129,7 @@ func (c *UserClient) GetUser(ctx context.Context, userID string) (*UserInfo, err
 }
 
 // GetUsersBatch retrieves multiple users by IDs
-func (c *UserClient) GetUsersBatch(ctx context.Context, userIDs []string) ([]UserInfo, error) {
+func (c *userClient) GetUsersBatch(ctx context.Context, userIDs []string) ([]UserInfo, error) {
 	url := fmt.Sprintf("%s/api/users/batch", c.baseURL)
 
 	requestBody := map[string][]string{
@@ -98,7 +166,7 @@ func (c *UserClient) GetUsersBatch(ctx context.Context, userIDs []string) ([]Use
 }
 
 // SearchUsers searches for users by query string
-func (c *UserClient) SearchUsers(ctx context.Context, query string) ([]UserInfo, error) {
+func (c *userClient) SearchUsers(ctx context.Context, query string) ([]UserInfo, error) {
 	url := fmt.Sprintf("%s/api/users/search?query=%s", c.baseURL, query)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)

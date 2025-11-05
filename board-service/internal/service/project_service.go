@@ -39,7 +39,7 @@ type projectService struct {
 	roleRepo           repository.RoleRepository
 	userOrderRepo      repository.UserOrderRepository
 	customFieldService CustomFieldService
-	userClient         *client.UserClient
+	userClient         client.UserClient
 	logger             *zap.Logger
 	db                 *gorm.DB
 }
@@ -50,7 +50,7 @@ func NewProjectService(
 	roleRepo repository.RoleRepository,
 	userOrderRepo repository.UserOrderRepository,
 	customFieldService CustomFieldService,
-	userClient *client.UserClient,
+	userClient client.UserClient,
 	logger *zap.Logger,
 	db *gorm.DB,
 ) ProjectService {
