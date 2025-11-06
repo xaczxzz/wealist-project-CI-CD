@@ -1,16 +1,14 @@
 package OrangeCloud.UserRepo.service;
 
 import OrangeCloud.UserRepo.dto.auth.AuthResponse;
-import OrangeCloud.UserRepo.dto.auth.LoginRequest;
-import OrangeCloud.UserRepo.dto.auth.SignupRequest;
 import OrangeCloud.UserRepo.dto.userinfo.UserInfoResponse;
 import OrangeCloud.UserRepo.entity.User;
 import OrangeCloud.UserRepo.repository.UserRepository;
 import OrangeCloud.UserRepo.util.JwtTokenProvider;
-import OrangeCloud.UserRepo.exception.EmailAlreadyExistsException;
+
 import OrangeCloud.UserRepo.exception.UserNotFoundException;
-import OrangeCloud.UserRepo.exception.InvalidPasswordException;
-import org.springframework.beans.factory.annotation.Value;
+
+
 import org.springframework.cache.annotation.Cacheable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
 
@@ -37,6 +34,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final RedisTemplate<String, Object> redisTemplate;
 
+
     @Autowired
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -48,32 +46,6 @@ public class AuthService {
         this.redisTemplate = redisTemplate;
     }
 
-//    public AuthResponse signup(SignupRequest signupRequest) {
-//        logger.debug("Attempting to sign up user with email: {}", signupRequest.getEmail());
-//
-//        // 이메일 중복 검사
-//        if (userRepository.existsByEmailAndIsActiveTrue(signupRequest.getEmail())) {
-//            logger.warn("Signup failed: Email already exists: {}", signupRequest.getEmail());
-//            throw new EmailAlreadyExistsException("이미 사용 중인 이메일입니다.");
-//        }
-//
-//        // 사용자 생성
-//        User user = User.builder()
-//                .name(signupRequest.getName())
-//                .email(signupRequest.getEmail())
-////                .passwordHash(passwordEncoder.encode(signupRequest.getPassword()))
-//                .build();
-//
-//        User savedUser = userRepository.save(user);
-//        logger.debug("User signed up successfully with ID: {}", savedUser.getUserId());
-//
-//        // JWT 토큰 생성
-//        String accessToken = tokenProvider.generateToken(savedUser.getUserId());
-//        String refreshToken = tokenProvider.generateRefreshToken(savedUser.getUserId());
-//        logger.debug("Generated tokens for user: {}", savedUser.getUserId());
-//
-//        return new AuthResponse(accessToken, refreshToken, savedUser.getUserId(), savedUser.getName(), savedUser.getEmail());
-//    }
 
     public AuthResponse TestLogin() {
         // 랜덤한 이메일로 새 사용자 생성

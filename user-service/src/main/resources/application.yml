@@ -38,10 +38,10 @@ spring:
       client:
         registration:
           google:
-#            client-id: "640996696843-gtht74dpnn9c4u7mb6k5craur1vojgbk"
+#            
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
-#            client-secret: "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"
+#            
             scope:
               - email
               - profile
@@ -83,3 +83,33 @@ logging:
   level:
     OrangeCloud: DEBUG
     org.springframework.security: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,loggers,env,beans
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    export:
+      enabled: true
+  metrics:
+    export:
+      enabled: true
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      sla:
+        http.server.requests: 100ms,500ms,1s
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+    

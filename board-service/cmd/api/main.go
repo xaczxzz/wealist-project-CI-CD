@@ -103,6 +103,8 @@ func main() {
 	// 7. Create router
 	r := gin.New()
 
+	
+
 	// 8. Register middleware (order is important)
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggerMiddleware(log))
