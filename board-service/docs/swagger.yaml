@@ -1,0 +1,21 @@
+basePath: /api
+host: localhost:8000
+info:
+  contact:
+    email: support@wealist.com
+    name: API Support
+  description: Kanban board management API for weAlist project management platform
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Board Service API
+  version: "1.0"
+paths: {}
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

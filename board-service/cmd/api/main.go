@@ -13,8 +13,31 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
+
+	_ "board-service/docs" // Swagger docs
 )
+
+// @title Board Service API
+// @version 1.0
+// @description Kanban board management API for weAlist project management platform
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@wealist.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8000
+// @BasePath /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
 	// 1. Load configuration
@@ -36,7 +59,7 @@ func main() {
 	)
 
 	// 3. Connect to database
-	db, err := database.Connect(cfg.Database.URL, log)
+	db, err := database.Connect(cfg.Database.URL, log, cfg.Server.UseAutoMigrate)
 	if err != nil {
 		log.Fatal("Failed to connect to database", zap.Error(err))
 	}
@@ -86,11 +109,17 @@ func main() {
 	r.Use(middleware.RecoveryMiddleware(log))
 	r.Use(middleware.CORSMiddleware(cfg.CORS.Origins))
 
-	// 9. Register health check (no authentication required)
+	// 9. Register Swagger (development only)
+	if cfg.Server.Env == "dev" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		log.Info("Swagger UI enabled", zap.String("url", "http://localhost:"+cfg.Server.Port+"/swagger/index.html"))
+	}
+
+	// 10. Register health check (no authentication required)
 	healthHandler := handler.NewHealthHandler(db, rdb)
 	handler.RegisterRoutes(r, healthHandler)
 
-	// 10. API routes group (authentication required)
+	// 11. API routes group (authentication required)
 	api := r.Group("/api")
 	api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 	{
@@ -203,7 +232,7 @@ func main() {
 		}
 	}
 
-	// 11. Start server
+	// 12. Start server
 	addr := ":" + cfg.Server.Port
 	log.Info("Server starting", zap.String("address", addr))
 

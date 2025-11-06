@@ -66,7 +66,8 @@ board-service/
 ### 1. Install Dependencies
 
 ```bash
-make deps
+go mod download
+go mod tidy
 ```
 
 ### 2. Configure Environment
@@ -78,62 +79,140 @@ cp .env.example .env
 ```
 
 Key environment variables:
+- `ENV`: Environment mode (`dev` or `prod`)
+- `USE_AUTO_MIGRATE`: Enable GORM AutoMigrate (`true` for dev, `false` for prod)
 - `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_URL`: Redis connection string
 - `SECRET_KEY`: JWT secret (must match User Service)
 - `USER_SERVICE_URL`: User Service base URL
 
-### 3. Run Database Migrations
+### 3. Database Setup
+
+#### Development (AutoMigrate)
+
+For rapid development, use GORM AutoMigrate:
 
 ```bash
-# Run all migrations
-make migrate-up
+# Set USE_AUTO_MIGRATE=true in .env
+echo "USE_AUTO_MIGRATE=true" >> .env
 
-# Rollback last migration
-make migrate-down
+# Run server (AutoMigrate runs automatically)
+go run cmd/api/main.go
 
-# Check current version
-make migrate-version
+# Or use the init script
+./scripts/db/init_dev.sh
+```
+
+#### Production (Manual Migrations)
+
+For production, use manual SQL migrations:
+
+```bash
+# Apply all pending migrations
+./scripts/db/apply_migrations.sh prod
+
+# Rollback specific migration
+./scripts/db/rollback.sh prod 20250106120000
+
+# Dump current schema
+./scripts/db/dump_schema.sh prod
 ```
 
 ### 4. Run the Application
 
 **Local development:**
 ```bash
-make run
+go run cmd/api/main.go
 ```
 
 **Build and run binary:**
 ```bash
-make build
+go build -ldflags="-s -w" -o board-api cmd/api/main.go
 ./board-api
 ```
 
 **Docker:**
 ```bash
-make docker-build
-make docker-run
+docker build -f docker/Dockerfile -t board-service:latest .
+docker run -p 8000:8000 --env-file .env board-service:latest
 ```
 
-## Available Make Commands
+### 5. Access Swagger UI
+
+Swagger is available in development mode only:
 
 ```bash
-make help              # Show all available commands
-make run               # Run locally (dev mode)
-make build             # Build binary
-make test              # Run tests
-make test-coverage     # Run tests with coverage
-make lint              # Run linter
-make lint-fix          # Run linter with auto-fix
-make deps              # Download and tidy dependencies
-make clean             # Clean build artifacts
-make docker-build      # Build Docker image
-make docker-run        # Run Docker container
-make migrate-create    # Create new migration (name=...)
-make migrate-up        # Run migrations up
-make migrate-down      # Rollback last migration
-make fmt               # Format code
-make vet               # Run go vet
+# Visit http://localhost:8000/swagger/index.html
+open http://localhost:8000/swagger/index.html
+
+# Regenerate Swagger docs (if needed)
+swag init -g cmd/api/main.go -o docs
+```
+
+## Available Commands
+
+### Development Commands
+
+```bash
+# Run service
+go run cmd/api/main.go
+
+# Build binary
+go build -ldflags="-s -w" -o board-api cmd/api/main.go
+
+# Run tests
+go test -v -race -cover ./...
+
+# Run tests with coverage
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out -o coverage.html
+
+# Format code
+go fmt ./...
+
+# Run linter (requires golangci-lint)
+golangci-lint run
+golangci-lint run --fix
+
+# Tidy dependencies
+go mod download
+go mod tidy
+```
+
+### Database Commands
+
+```bash
+# Initialize development database
+./scripts/db/init_dev.sh
+
+# Apply migrations (production)
+./scripts/db/apply_migrations.sh prod
+
+# Rollback migration
+./scripts/db/rollback.sh prod 20250106120000
+
+# Dump schema
+./scripts/db/dump_schema.sh dev
+```
+
+### Swagger Commands
+
+```bash
+# Generate Swagger documentation
+swag init -g cmd/api/main.go -o docs
+
+# View Swagger UI (dev mode only)
+open http://localhost:8000/swagger/index.html
+```
+
+### Docker Commands
+
+```bash
+# Build image
+docker build -f docker/Dockerfile -t board-service:latest .
+
+# Run container
+docker run -p 8000:8000 --env-file .env board-service:latest
 ```
 
 ## API Endpoints
@@ -194,26 +273,40 @@ Token validation errors:
 4. **Response Format**: Use `dto.Success()`, `dto.Error()`, `dto.Paginated()`
 5. **Logging**: Use structured logging with zap
 
-### Adding a New Migration
+### Database Migration Strategy
 
-```bash
-make migrate-create name=create_workspaces_table
-```
+**Development**: GORM AutoMigrate for rapid prototyping
+**Production**: Manual SQL migrations for full control
 
-Edit the generated files in `migrations/` directory, then:
+See [`migrations/README.md`](migrations/README.md) for detailed migration workflow.
 
-```bash
-make migrate-up
-```
+#### Creating a New Migration
+
+1. Modify models in `internal/domain/`
+2. Test with AutoMigrate: `ENV=dev USE_AUTO_MIGRATE=true go run cmd/api/main.go`
+3. Dump schema: `./scripts/db/dump_schema.sh dev`
+4. Create migration files:
+   ```bash
+   # migrations/20250110120000_add_attachments.up.sql
+   CREATE TABLE IF NOT EXISTS attachments (...);
+   INSERT INTO schema_versions (version, description) VALUES ('20250110120000', 'Add attachments table');
+   ```
+5. Create rollback: `migrations/20250110120000_add_attachments.down.sql`
+6. Test: `./scripts/db/apply_migrations.sh dev`
+7. Update `autoMigrateAll()` in `internal/database/postgres.go`
 
 ### Running Tests
 
 ```bash
 # Run all tests
-make test
+go test -v -race -cover ./...
 
 # Run with coverage
-make test-coverage
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out -o coverage.html
+
+# Open coverage report
+open coverage.html
 ```
 
 ## Docker Deployment
