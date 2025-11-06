@@ -3,7 +3,7 @@
 // import axios from 'axios';
 
 // 환경 변수에서 Kanban 서비스 URL을 가져옵니다.
-// const KANBAN_API_URL = process.env.REACT_APP_KANBAN_API_URL || 'http://localhost:8000';
+// const KANBAN_API_URL = import.meta.env.REACT_APP_KANBAN_API_URL || 'http://localhost:8000';
 
 // const kanbanService = axios.create({
 //   baseURL: KANBAN_API_URL,

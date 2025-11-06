@@ -3,17 +3,18 @@ import {
   TicketUpdate,
   TicketResponse,
   TicketListResponse,
-  TicketListParams
+  TicketListParams,
 } from '../types/kanban';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzYxMTM5NDc3LCJpYXQiOjE3NjEwNTMwNzd9.Tyumo_rjgFprYmMQtvh87mx5hv4KO55RUwwKMv1CIPA"
+const API_BASE_URL = import.meta.env.VITE_REACT_APP_GO_API_URL || 'http://localhost:8000';
+const token =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzYxMTM5NDc3LCJpYXQiOjE3NjEwNTMwNzd9.Tyumo_rjgFprYmMQtvh87mx5hv4KO55RUwwKMv1CIPA';
 class TicketService {
   private getAuthHeaders(): HeadersInit {
     // const token = localStorage.getItem('auth_token');
     return {
       'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
+      ...(token && { Authorization: `Bearer ${token}` }),
     };
   }
 
@@ -24,7 +25,7 @@ class TicketService {
     const response = await fetch(`${API_BASE_URL}/api/tickets/`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -39,20 +40,17 @@ class TicketService {
    */
   async listTickets(params?: TicketListParams): Promise<TicketListResponse> {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.project_id) queryParams.append('project_id', params.project_id.toString());
     if (params?.status) queryParams.append('status', params.status);
     if (params?.priority) queryParams.append('priority', params.priority);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.offset) queryParams.append('offset', params.offset.toString());
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/tickets/?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers: this.getAuthHeaders()
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/api/tickets/?${queryParams.toString()}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to list tickets: ${response.statusText}`);
@@ -67,7 +65,7 @@ class TicketService {
   async getTicket(ticketId: number): Promise<TicketResponse> {
     const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
       method: 'GET',
-      headers: this.getAuthHeaders()
+      headers: this.getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -80,14 +78,11 @@ class TicketService {
   /**
    * Ticket 정보 수정
    */
-  async updateTicket(
-    ticketId: number,
-    data: TicketUpdate
-  ): Promise<TicketResponse> {
+  async updateTicket(ticketId: number, data: TicketUpdate): Promise<TicketResponse> {
     const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
       method: 'PATCH',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -103,7 +98,7 @@ class TicketService {
   async deleteTicket(ticketId: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
       method: 'DELETE',
-      headers: this.getAuthHeaders()
+      headers: this.getAuthHeaders(),
     });
 
     if (!response.ok) {

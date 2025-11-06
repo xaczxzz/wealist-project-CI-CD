@@ -2,10 +2,10 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // Java 서비스 (사용자 관리)
-const JAVA_API_URL = process.env.REACT_APP_JAVA_API_URL || 'http://localhost:8080/api';
+const JAVA_API_URL = import.meta.env.VITE_REACT_APP_JAVA_API_URL || 'http://localhost:8080/api';
 
 // Python 서비스 (보드/칸반 관리)
-const PYTHON_API_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:8000/api';
+const PYTHON_API_URL = import.meta.env.VITE_REACT_APP_GO_API_URL || 'http://localhost:8000/api';
 
 // 공통 Axios 설정 함수
 const createApiInstance = (baseURL: string): AxiosInstance => {
@@ -28,7 +28,7 @@ const createApiInstance = (baseURL: string): AxiosInstance => {
     },
     (error: AxiosError) => {
       return Promise.reject(error);
-    }
+    },
   );
 
   // 응답 인터셉터
@@ -53,7 +53,7 @@ const createApiInstance = (baseURL: string): AxiosInstance => {
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           }
-          
+
           return instance(originalRequest);
         } catch (refreshError) {
           localStorage.removeItem('accessToken');
@@ -65,7 +65,7 @@ const createApiInstance = (baseURL: string): AxiosInstance => {
       }
 
       return Promise.reject(error);
-    }
+    },
   );
 
   return instance;

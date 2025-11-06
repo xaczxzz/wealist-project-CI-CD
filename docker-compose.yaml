@@ -138,18 +138,15 @@ services:
       dockerfile: Dockerfile
     container_name: wealist-frontend
     ports:
-      - "3000:3000" # 로컬 개발 서버 포트
+      - "3000:80" # 로컬 개발 서버 포트
     volumes:
       - ./frontend:/app
       - /app/node_modules # node_modules는 컨테이너 내부 것을 사용하도록 설정
-    environment:
-      - WATCHPACK_POLLING=true # Docker에서 Hot Reloading을 위한 설정
     networks:
       - wealist-net
     depends_on: # 백엔드 서비스들이 시작된 후 실행
       - board-service
-      # user-service 제거 (healthcheck 문제로)
-      # - user-service
+      - user-service
     restart: unless-stopped
 
 #--- Networks and Volumes ---

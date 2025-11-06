@@ -3,18 +3,19 @@ import {
   WorkspaceUpdate,
   WorkspaceResponse,
   WorkspaceListResponse,
-  PaginationParams
+  PaginationParams,
 } from '../types/kanban';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzYxMTQwMTQyLCJpYXQiOjE3NjEwNTM3NDJ9.hLA-qgb4RfyEkSUM1Iymivp1GdxWzlRst34SNbAhznU"
+const API_BASE_URL = import.meta.env.VITE_REACT_APP_GO_API_URL || 'http://localhost:8000';
+const token =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzYxMTQwMTQyLCJpYXQiOjE3NjEwNTM3NDJ9.hLA-qgb4RfyEkSUM1Iymivp1GdxWzlRst34SNbAhznU';
 
 class WorkspaceService {
   private getAuthHeaders(): HeadersInit {
     // const token = localStorage.getItem('auth_token');
     return {
       'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
+      ...(token && { Authorization: `Bearer ${token}` }),
     };
   }
 
@@ -25,7 +26,7 @@ class WorkspaceService {
     const response = await fetch(`${API_BASE_URL}/api/workspaces/`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -40,17 +41,14 @@ class WorkspaceService {
    */
   async listWorkspaces(params?: PaginationParams): Promise<WorkspaceListResponse> {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.offset) queryParams.append('offset', params.offset.toString());
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/workspaces/?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers: this.getAuthHeaders()
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/api/workspaces/?${queryParams.toString()}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to list workspaces: ${response.statusText}`);
@@ -65,7 +63,7 @@ class WorkspaceService {
   async getWorkspace(workspaceId: number): Promise<WorkspaceResponse> {
     const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, {
       method: 'GET',
-      headers: this.getAuthHeaders()
+      headers: this.getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -78,14 +76,11 @@ class WorkspaceService {
   /**
    * Workspace 정보 수정
    */
-  async updateWorkspace(
-    workspaceId: number,
-    data: WorkspaceUpdate
-  ): Promise<WorkspaceResponse> {
+  async updateWorkspace(workspaceId: number, data: WorkspaceUpdate): Promise<WorkspaceResponse> {
     const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, {
       method: 'PATCH',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -101,7 +96,7 @@ class WorkspaceService {
   async deleteWorkspace(workspaceId: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, {
       method: 'DELETE',
-      headers: this.getAuthHeaders()
+      headers: this.getAuthHeaders(),
     });
 
     if (!response.ok) {
