@@ -80,11 +80,15 @@ func main() {
 	// 7. Create router
 	r := gin.New()
 
+	
+
 	// 8. Register middleware (order is important)
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggerMiddleware(log))
 	r.Use(middleware.RecoveryMiddleware(log))
 	r.Use(middleware.CORSMiddleware(cfg.CORS.Origins))
+
+
 
 	// 9. Register health check (no authentication required)
 	healthHandler := handler.NewHealthHandler(db, rdb)
