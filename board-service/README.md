@@ -22,8 +22,13 @@ Kanban board API service for weAlist project management platform. This is a migr
 - **Microservices**: Integrates with User Service (Spring Boot, port 8080)
 - **Authentication**: JWT token validation (shared secret with User Service)
 - **Database**: PostgreSQL with UUID primary keys, no foreign keys (sharding-ready)
-- **Soft Deletes**: All entities use `is_deleted` flag instead of hard deletes
-- **Audit Fields**: `created_by`, `updated_by`, `created_at`, `updated_at` on all entities
+- **Soft Deletes**: Unified `is_deleted` boolean flag in `BaseModel` (inherited by all entities)
+  - Exception: `Comment` table uses GORM's `DeletedAt` for historical reasons
+- **BaseModel**: All entities inherit from BaseModel with:
+  - `ID` (UUID, auto-generated)
+  - `CreatedAt` (timestamp, auto-managed)
+  - `UpdatedAt` (timestamp, auto-managed)
+  - `IsDeleted` (boolean, default false)
 
 ## Project Structure
 
@@ -57,7 +62,7 @@ board-service/
 ## Prerequisites
 
 - Go 1.23 or higher
-- PostgreSQL 16
+- PostgreSQL 17
 - Redis 7
 - Docker and Docker Compose (for containerized deployment)
 
@@ -227,7 +232,7 @@ Response:
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-11-03T10:00:00Z",
+  "timestamp": "2025-01-06T10:00:00Z",
   "services": {
     "database": "up",
     "redis": "up"
@@ -239,13 +244,62 @@ Response:
 
 All `/api/*` endpoints require JWT authentication via `Authorization: Bearer <token>` header.
 
-**Coming in future phases:**
-- Workspaces API
-- Projects API
-- Tickets API
-- Tasks API
-- Comments API
-- Attachments API
+#### Workspaces
+- `POST /api/workspaces` - Create workspace
+- `GET /api/workspaces/search` - Search workspaces
+- `GET /api/workspaces/:id` - Get workspace details
+- `PUT /api/workspaces/:id` - Update workspace
+- `DELETE /api/workspaces/:id` - Delete workspace (soft)
+- `POST /api/workspaces/join-requests` - Create join request
+- `GET /api/workspaces/:id/join-requests` - List join requests
+- `PUT /api/workspaces/join-requests/:id` - Approve/reject join request
+- `GET /api/workspaces/:id/members` - List workspace members
+- `PUT /api/workspaces/:id/members/:memberId/role` - Update member role
+- `DELETE /api/workspaces/:id/members/:memberId` - Remove member
+- `POST /api/workspaces/default` - Set default workspace
+
+#### Projects
+- `POST /api/projects` - Create project
+- `GET /api/projects/search` - Search projects
+- `GET /api/projects/:id` - Get project details
+- `PUT /api/projects/:id` - Update project
+- `DELETE /api/projects/:id` - Delete project (soft)
+- `POST /api/projects/join-requests` - Create join request
+- `GET /api/projects/:id/join-requests` - List join requests
+- `PUT /api/projects/join-requests/:id` - Approve/reject join request
+- `GET /api/projects/:id/members` - List project members
+- `PUT /api/projects/:id/members/:memberId/role` - Update member role
+- `DELETE /api/projects/:id/members/:memberId` - Remove member
+
+#### Custom Fields
+- `POST /api/custom-fields/roles` - Create custom role
+- `GET /api/custom-fields/projects/:projectId/roles` - List custom roles
+- `GET /api/custom-fields/roles/:id` - Get custom role
+- `PUT /api/custom-fields/roles/:id` - Update custom role
+- `DELETE /api/custom-fields/roles/:id` - Delete custom role
+- `PUT /api/custom-fields/projects/:projectId/roles/order` - Update role order
+- Similar endpoints for `/stages` and `/importance`
+
+#### Boards
+- `POST /api/boards` - Create board
+- `GET /api/boards` - List boards (filters: project_id, stage_id, importance_id, role_id, assignee_id, author_id)
+- `GET /api/boards/:id` - Get board details
+- `PUT /api/boards/:id` - Update board
+- `DELETE /api/boards/:id` - Delete board (soft)
+
+#### User Order (Drag-and-Drop)
+- `GET /api/projects/:id/orders/role-board` - Get role-based board view
+- `GET /api/projects/:id/orders/stage-board` - Get stage-based board view
+- `PUT /api/projects/:id/orders/role-columns` - Update role column order
+- `PUT /api/projects/:id/orders/stage-columns` - Update stage column order
+- `PUT /api/projects/:id/orders/role-boards/:roleId` - Update board order in role column
+- `PUT /api/projects/:id/orders/stage-boards/:stageId` - Update board order in stage column
+
+#### Comments
+- `POST /api/comments` - Create comment
+- `GET /api/comments?board_id=<uuid>` - List comments by board
+- `PUT /api/comments/:id` - Update comment
+- `DELETE /api/comments/:id` - Delete comment
 
 ## Authentication
 
@@ -278,25 +332,50 @@ Token validation errors:
 **Development**: GORM AutoMigrate for rapid prototyping
 **Production**: Manual SQL migrations for full control
 
-See [`migrations/README.md`](migrations/README.md) for detailed migration workflow.
-
 #### Creating a New Migration
 
 1. Modify models in `internal/domain/`
 2. Test with AutoMigrate: `ENV=dev USE_AUTO_MIGRATE=true go run cmd/api/main.go`
 3. Dump schema: `./scripts/db/dump_schema.sh dev`
-4. Create migration files:
-   ```bash
-   # migrations/20250110120000_add_attachments.up.sql
-   CREATE TABLE IF NOT EXISTS attachments (...);
-   INSERT INTO schema_versions (version, description) VALUES ('20250110120000', 'Add attachments table');
+4. Create migration files (naming: `YYYYMMDDHHMMSS_description.{up|down}.sql`):
+   ```sql
+   -- migrations/20250110120000_add_attachments.up.sql
+   CREATE TABLE IF NOT EXISTS attachments (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       board_id UUID NOT NULL,
+       file_name VARCHAR(255) NOT NULL,
+       is_deleted BOOLEAN DEFAULT FALSE,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   );
+
+   CREATE INDEX idx_attachments_board_id ON attachments(board_id);
+   CREATE INDEX idx_attachments_is_deleted ON attachments(is_deleted);
+
+   INSERT INTO schema_versions (version, description)
+   VALUES ('20250110120000', 'Add attachments table');
    ```
-5. Create rollback: `migrations/20250110120000_add_attachments.down.sql`
-6. Test: `./scripts/db/apply_migrations.sh dev`
-7. Update `autoMigrateAll()` in `internal/database/postgres.go`
+5. Create rollback file:
+   ```sql
+   -- migrations/20250110120000_add_attachments.down.sql
+   DROP TABLE IF EXISTS attachments CASCADE;
+   DELETE FROM schema_versions WHERE version = '20250110120000';
+   ```
+6. Test migration: `./scripts/db/apply_migrations.sh dev`
+7. Test rollback: `./scripts/db/rollback.sh dev 20250110120000`
+8. Update `autoMigrateAll()` in `internal/database/postgres.go`
+
+#### Migration Guidelines
+
+- **No Foreign Keys**: Use comments like `-- References boards.id (no FK for sharding)`
+- **UUID Primary Keys**: Always use `UUID DEFAULT gen_random_uuid()`
+- **Soft Deletes**: Add `is_deleted BOOLEAN DEFAULT FALSE` and index
+- **Idempotent SQL**: Use `IF NOT EXISTS` / `IF EXISTS`
+- **Track Versions**: All migrations must insert into `schema_versions` table
 
 ### Running Tests
 
+#### Unit Tests
 ```bash
 # Run all tests
 go test -v -race -cover ./...
@@ -308,6 +387,30 @@ go tool cover -html=coverage.out -o coverage.html
 # Open coverage report
 open coverage.html
 ```
+
+#### Integration Tests
+
+The service includes a comprehensive integration test script that validates all major functionality:
+
+```bash
+# Run from project root
+cd ../scripts/board_test_script
+./test_board_service.sh
+```
+
+The test script validates:
+- ✅ Health Check
+- ✅ Token Generation (from User Service)
+- ✅ Workspace CRUD operations
+- ✅ Project CRUD operations
+- ✅ Custom Role creation
+- ✅ Board creation and management
+- ✅ Stage-based and Role-based board views
+- ✅ Board ordering (drag-and-drop functionality)
+- ✅ Project member queries
+- ✅ Board updates
+
+All tests must pass before deploying to production.
 
 ## Docker Deployment
 
@@ -358,13 +461,57 @@ The service uses structured JSON logging in production and console logging in de
 - `user_id`: Authenticated user ID (if available)
 - `error`: Error details (if applicable)
 
+## Features
+
+### Core Functionality
+- ✅ **Workspace Management**: Create, search, and manage workspaces
+- ✅ **Project Management**: Create projects within workspaces with member management
+- ✅ **Custom Fields**: Project-specific roles, stages, and importance levels
+- ✅ **Board Management**: Create and organize boards with custom attributes
+- ✅ **Drag-and-Drop**: User-specific board ordering with Redis caching
+- ✅ **Board Views**: Role-based and Stage-based board views
+- ✅ **Comments**: Add comments to boards
+- ✅ **Join Requests**: Workspace and project join request workflow
+- ✅ **Member Management**: Role-based access control for workspaces and projects
+- ✅ **Soft Delete**: All entities support soft deletion for data recovery
+
+### Technical Features
+- ✅ **JWT Authentication**: Secure token-based authentication
+- ✅ **Redis Caching**: User order caching for performance
+- ✅ **Structured Logging**: JSON logs with request tracing
+- ✅ **Swagger Documentation**: Interactive API documentation (dev mode)
+- ✅ **Health Checks**: Database and Redis connectivity monitoring
+- ✅ **CORS Support**: Configurable cross-origin resource sharing
+- ✅ **Migration System**: Two-track migration strategy (AutoMigrate + Manual SQL)
+
+## Recent Updates
+
+### v1.0.1 - Soft Delete Unification (2025-01-06)
+
+**Major Changes:**
+- Unified all domain models to inherit from `BaseModel` with `is_deleted` field
+- Refactored `Board`, `BoardRole`, and all `UserOrder` models to use `BaseModel`
+- Fixed composite UNIQUE constraints on user order tables
+- Updated all repository queries from `deleted_at IS NULL` to `is_deleted = false`
+- Renamed API entity from "Kanban" to "Board" throughout codebase
+- Updated endpoints: `/api/kanbans` → `/api/boards`
+- Updated user order endpoints: `/stage-kanbans` → `/stage-boards`, `/role-kanbans` → `/role-boards`
+
+**Testing:**
+- All 13 integration tests passing
+- Health check, CRUD operations, board views, and ordering functionality verified
+
+**Exception:** `Comment` table continues to use `gorm.DeletedAt` for historical consistency.
+
 ## Contributing
 
 1. Create a feature branch from `main`
 2. Make your changes
-3. Run tests and linter: `make test lint`
-4. Build to verify: `make build`
-5. Submit a pull request
+3. Run tests: `go test -v ./...`
+4. Run linter: `golangci-lint run`
+5. Build to verify: `go build cmd/api/main.go`
+6. Run integration tests: `cd ../scripts/board_test_script && ./test_board_service.sh`
+7. Submit a pull request
 
 ## License
 
