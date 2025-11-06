@@ -22,7 +22,7 @@ import (
 
 // @title Board Service API
 // @version 1.0
-// @description Kanban board management API for weAlist project management platform
+// @description Board management API for weAlist project management platform
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
@@ -82,18 +82,18 @@ func main() {
 	workspaceRepo := repository.NewWorkspaceRepository(db)
 	projectRepo := repository.NewProjectRepository(db)
 	customFieldRepo := repository.NewCustomFieldRepository(db)
-	kanbanRepo := repository.NewKanbanRepository(db)
+	boardRepo := repository.NewBoardRepository(db)
 	userOrderRepo := repository.NewUserOrderRepository(db)
 	commentRepo := repository.NewCommentRepository(db) // Add CommentRepository
 
 	// 5.7. Initialize services
-	// Note: customFieldService needs kanbanRepo (for Phase 4 TODO), then injected into projectService
-	customFieldService := service.NewCustomFieldService(customFieldRepo, projectRepo, roleRepo, kanbanRepo, log, db)
-	kanbanService := service.NewKanbanService(kanbanRepo, projectRepo, customFieldRepo, roleRepo, userClient, log, db)
+	// Note: customFieldService needs boardRepo (for Phase 4 TODO), then injected into projectService
+	customFieldService := service.NewCustomFieldService(customFieldRepo, projectRepo, roleRepo, boardRepo, log, db)
+	boardService := service.NewBoardService(boardRepo, projectRepo, customFieldRepo, roleRepo, userClient, log, db)
 	workspaceService := service.NewWorkspaceService(workspaceRepo, roleRepo, userClient, log, db)
 	projectService := service.NewProjectService(projectRepo, workspaceRepo, roleRepo, userOrderRepo, customFieldService, userClient, log, db)
-	userOrderService := service.NewUserOrderService(userOrderRepo, projectRepo, customFieldRepo, kanbanRepo, userOrderCache, log)
-	commentService := service.NewCommentService(commentRepo, kanbanRepo, projectRepo, userClient, log, db) // Add CommentService
+	userOrderService := service.NewUserOrderService(userOrderRepo, projectRepo, customFieldRepo, boardRepo, userOrderCache, log)
+	commentService := service.NewCommentService(commentRepo, boardRepo, projectRepo, userClient, log, db) // Add CommentService
 
 	// 6. Configure Gin mode
 	if cfg.Server.Env == "prod" {
@@ -127,7 +127,7 @@ func main() {
 		workspaceHandler := handler.NewWorkspaceHandler(workspaceService)
 		projectHandler := handler.NewProjectHandler(projectService)
 		customFieldHandler := handler.NewCustomFieldHandler(customFieldService)
-		kanbanHandler := handler.NewKanbanHandler(kanbanService)
+		boardHandler := handler.NewBoardHandler(boardService)
 		userOrderHandler := handler.NewUserOrderHandler(userOrderService)
 		commentHandler := handler.NewCommentHandler(commentService) // Add CommentHandler
 
@@ -180,8 +180,8 @@ func main() {
 			projects.GET("/:id/orders/stage-board", userOrderHandler.GetStageBasedBoardView)
 			projects.PUT("/:id/orders/role-columns", userOrderHandler.UpdateRoleColumnOrder)
 			projects.PUT("/:id/orders/stage-columns", userOrderHandler.UpdateStageColumnOrder)
-			projects.PUT("/:id/orders/role-kanbans/:roleId", userOrderHandler.UpdateKanbanOrderInRole)
-			projects.PUT("/:id/orders/stage-kanbans/:stageId", userOrderHandler.UpdateKanbanOrderInStage)
+			projects.PUT("/:id/orders/role-boards/:roleId", userOrderHandler.UpdateBoardOrderInRole)
+			projects.PUT("/:id/orders/stage-boards/:stageId", userOrderHandler.UpdateBoardOrderInStage)
 		}
 
 		// Custom Fields routes
@@ -212,21 +212,21 @@ func main() {
 			customFields.PUT("/projects/:projectId/importance/order", customFieldHandler.UpdateCustomImportanceOrder)
 		}
 
-		// Kanban routes
-		kanbans := api.Group("/kanbans")
+		// Board routes
+		boards := api.Group("/boards")
 		{
-			kanbans.POST("", kanbanHandler.CreateKanban)
-			kanbans.GET("/:id", kanbanHandler.GetKanban)
-			kanbans.GET("", kanbanHandler.GetKanbans)
-			kanbans.PUT("/:id", kanbanHandler.UpdateKanban)
-			kanbans.DELETE("/:id", kanbanHandler.DeleteKanban)
+			boards.POST("", boardHandler.CreateBoard)
+			boards.GET("/:id", boardHandler.GetBoard)
+			boards.GET("", boardHandler.GetBoards)
+			boards.PUT("/:id", boardHandler.UpdateBoard)
+			boards.DELETE("/:id", boardHandler.DeleteBoard)
 		}
 
 		// Comment routes
 		comments := api.Group("/comments")
 		{
 			comments.POST("", commentHandler.CreateComment)
-			comments.GET("", commentHandler.GetCommentsByKanbanID) // Changed from nested route
+			comments.GET("", commentHandler.GetCommentsByBoardID) // Changed from nested route
 			comments.PUT("/:id", commentHandler.UpdateComment)
 			comments.DELETE("/:id", commentHandler.DeleteComment)
 		}

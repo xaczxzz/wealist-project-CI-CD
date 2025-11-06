@@ -45,7 +45,7 @@ func Load() (*Config, error) {
 	v.SetDefault("LOG_LEVEL", "info")
 	v.SetDefault("CORS_ORIGINS", "http://localhost:3000")
 
-	// Bind environment variables
+	// Bind environment variables only (no .env file loading)
 	v.AutomaticEnv()
 
 	// Read environment variables

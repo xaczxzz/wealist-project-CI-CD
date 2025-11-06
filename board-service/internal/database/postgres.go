@@ -81,9 +81,12 @@ func autoMigrateAll(db *gorm.DB, logger *zap.Logger) error {
 		&domain.CustomRole{},
 		&domain.CustomStage{},
 		&domain.CustomImportance{},
-		&domain.Kanban{},
-		&domain.KanbanRole{},
-		&domain.UserOrder{},
+		&domain.Board{},
+		&domain.BoardRole{},
+		&domain.UserRoleColumnOrder{},
+		&domain.UserStageColumnOrder{},
+		&domain.UserBoardOrderInRole{},
+		&domain.UserBoardOrderInStage{},
 		&domain.Comment{},
 	}
 

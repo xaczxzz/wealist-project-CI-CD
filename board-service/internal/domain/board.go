@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Kanban struct {
+type Board struct {
 	ID           uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	ProjectID    uuid.UUID      `gorm:"type:uuid;not null;index" json:"project_id"`
 	Title        string         `gorm:"type:varchar(200);not null" json:"title"`
@@ -22,14 +22,14 @@ type Kanban struct {
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 }
 
-func (Kanban) TableName() string {
-	return "kanbans"
+func (Board) TableName() string {
+	return "boards"
 }
 
 // BeforeCreate is a GORM hook that generates UUID before creating a record
-func (k *Kanban) BeforeCreate(tx *gorm.DB) error {
-	if k.ID == uuid.Nil {
-		k.ID = uuid.New()
+func (b *Board) BeforeCreate(tx *gorm.DB) error {
+	if b.ID == uuid.Nil {
+		b.ID = uuid.New()
 	}
 	return nil
 }

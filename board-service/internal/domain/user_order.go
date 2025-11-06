@@ -51,46 +51,46 @@ func (u *UserStageColumnOrder) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// UserKanbanOrderInRole stores user-specific display order for kanbans within each role column
-type UserKanbanOrderInRole struct {
+// UserBoardOrderInRole stores user-specific display order for boards within each role column
+type UserBoardOrderInRole struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID       uuid.UUID `gorm:"type:uuid;not null;index:idx_user_kanban_role_order,priority:1" json:"user_id"`
-	ProjectID    uuid.UUID `gorm:"type:uuid;not null;index:idx_user_kanban_role_order,priority:2" json:"project_id"`
-	CustomRoleID uuid.UUID `gorm:"type:uuid;not null;index:idx_user_kanban_role_order,priority:3" json:"custom_role_id"`
-	KanbanID     uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_user_kanban_role_unique" json:"kanban_id"`
+	UserID       uuid.UUID `gorm:"type:uuid;not null;index:idx_user_board_role_order,priority:1" json:"user_id"`
+	ProjectID    uuid.UUID `gorm:"type:uuid;not null;index:idx_user_board_role_order,priority:2" json:"project_id"`
+	CustomRoleID uuid.UUID `gorm:"type:uuid;not null;index:idx_user_board_role_order,priority:3" json:"custom_role_id"`
+	BoardID      uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_user_board_role_unique" json:"board_id"`
 	DisplayOrder int       `gorm:"not null;default:0" json:"display_order"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
-func (UserKanbanOrderInRole) TableName() string {
-	return "user_kanban_order_in_role"
+func (UserBoardOrderInRole) TableName() string {
+	return "user_board_order_in_role"
 }
 
-func (u *UserKanbanOrderInRole) BeforeCreate(tx *gorm.DB) error {
+func (u *UserBoardOrderInRole) BeforeCreate(tx *gorm.DB) error {
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
 	}
 	return nil
 }
 
-// UserKanbanOrderInStage stores user-specific display order for kanbans within each stage column
-type UserKanbanOrderInStage struct {
+// UserBoardOrderInStage stores user-specific display order for boards within each stage column
+type UserBoardOrderInStage struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID        uuid.UUID `gorm:"type:uuid;not null;index:idx_user_kanban_stage_order,priority:1" json:"user_id"`
-	ProjectID     uuid.UUID `gorm:"type:uuid;not null;index:idx_user_kanban_stage_order,priority:2" json:"project_id"`
-	CustomStageID uuid.UUID `gorm:"type:uuid;not null;index:idx_user_kanban_stage_order,priority:3" json:"custom_stage_id"`
-	KanbanID      uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_user_kanban_stage_unique" json:"kanban_id"`
+	UserID        uuid.UUID `gorm:"type:uuid;not null;index:idx_user_board_stage_order,priority:1" json:"user_id"`
+	ProjectID     uuid.UUID `gorm:"type:uuid;not null;index:idx_user_board_stage_order,priority:2" json:"project_id"`
+	CustomStageID uuid.UUID `gorm:"type:uuid;not null;index:idx_user_board_stage_order,priority:3" json:"custom_stage_id"`
+	BoardID       uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_user_board_stage_unique" json:"board_id"`
 	DisplayOrder  int       `gorm:"not null;default:0" json:"display_order"`
 	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
-func (UserKanbanOrderInStage) TableName() string {
-	return "user_kanban_order_in_stage"
+func (UserBoardOrderInStage) TableName() string {
+	return "user_board_order_in_stage"
 }
 
-func (u *UserKanbanOrderInStage) BeforeCreate(tx *gorm.DB) error {
+func (u *UserBoardOrderInStage) BeforeCreate(tx *gorm.DB) error {
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
 	}
