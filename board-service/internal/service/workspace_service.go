@@ -81,7 +81,6 @@ func (s *workspaceService) CreateWorkspace(ownerID string, req *dto.CreateWorksp
 			Description: req.Description,
 			OwnerID:     ownerUUID,
 			IsPublic:    false,
-			IsDeleted:   false,
 		}
 		if err := s.repo.Create(workspace); err != nil {
 			return err

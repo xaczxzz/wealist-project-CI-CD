@@ -20,10 +20,12 @@ CREATE TABLE IF NOT EXISTS roles (
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_roles_name UNIQUE(name)
 );
 CREATE INDEX idx_roles_name ON roles(name);
 CREATE INDEX idx_roles_level ON roles(level);
+CREATE INDEX idx_roles_is_deleted ON roles(is_deleted);
 
 COMMENT ON TABLE roles IS 'System-wide default roles (OWNER, ADMIN, MEMBER)';
 COMMENT ON COLUMN roles.level IS 'Permission level: higher = more permissions';
@@ -56,11 +58,13 @@ CREATE TABLE IF NOT EXISTS workspace_members (
     is_default BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_workspace_members_workspace_id_user_id UNIQUE(workspace_id, user_id)
 );
 CREATE INDEX idx_workspace_members_workspace_id ON workspace_members(workspace_id);
 CREATE INDEX idx_workspace_members_user_id ON workspace_members(user_id);
 CREATE INDEX idx_workspace_members_role_id ON workspace_members(role_id);
+CREATE INDEX idx_workspace_members_is_deleted ON workspace_members(is_deleted);
 
 COMMENT ON COLUMN workspace_members.workspace_id IS 'References workspaces.id (no FK for sharding)';
 COMMENT ON COLUMN workspace_members.user_id IS 'References users.id (no FK for microservice isolation)';
@@ -79,11 +83,13 @@ CREATE TABLE IF NOT EXISTS workspace_join_requests (
     processed_by UUID,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_workspace_join_requests_workspace_id_user_id UNIQUE(workspace_id, user_id)
 );
 CREATE INDEX idx_workspace_join_requests_workspace_id ON workspace_join_requests(workspace_id);
 CREATE INDEX idx_workspace_join_requests_user_id ON workspace_join_requests(user_id);
 CREATE INDEX idx_workspace_join_requests_status ON workspace_join_requests(status);
+CREATE INDEX idx_workspace_join_requests_is_deleted ON workspace_join_requests(is_deleted);
 
 COMMENT ON COLUMN workspace_join_requests.status IS 'PENDING, APPROVED, or REJECTED';
 COMMENT ON COLUMN workspace_join_requests.processed_by IS 'User ID who approved/rejected (no FK)';
@@ -116,11 +122,13 @@ CREATE TABLE IF NOT EXISTS project_members (
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_project_members_project_id_user_id UNIQUE(project_id, user_id)
 );
 CREATE INDEX idx_project_members_project_id ON project_members(project_id);
 CREATE INDEX idx_project_members_user_id ON project_members(user_id);
 CREATE INDEX idx_project_members_role_id ON project_members(role_id);
+CREATE INDEX idx_project_members_is_deleted ON project_members(is_deleted);
 
 COMMENT ON COLUMN project_members.project_id IS 'References projects.id (no FK for sharding)';
 COMMENT ON COLUMN project_members.user_id IS 'References users.id (no FK for microservice isolation)';
@@ -135,11 +143,13 @@ CREATE TABLE IF NOT EXISTS project_join_requests (
     requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_project_join_requests_project_id_user_id UNIQUE(project_id, user_id)
 );
 CREATE INDEX idx_project_join_requests_project_id ON project_join_requests(project_id);
 CREATE INDEX idx_project_join_requests_user_id ON project_join_requests(user_id);
 CREATE INDEX idx_project_join_requests_status ON project_join_requests(status);
+CREATE INDEX idx_project_join_requests_is_deleted ON project_join_requests(is_deleted);
 
 COMMENT ON COLUMN project_join_requests.status IS 'PENDING, APPROVED, or REJECTED';
 
@@ -153,10 +163,12 @@ CREATE TABLE IF NOT EXISTS custom_roles (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_custom_roles_project_id_name UNIQUE(project_id, name)
 );
 CREATE INDEX idx_custom_roles_project_id ON custom_roles(project_id);
 CREATE INDEX idx_custom_roles_is_system_default ON custom_roles(is_system_default);
+CREATE INDEX idx_custom_roles_is_deleted ON custom_roles(is_deleted);
 
 COMMENT ON TABLE custom_roles IS 'Project-specific custom roles for board categorization';
 COMMENT ON COLUMN custom_roles.project_id IS 'References projects.id (no FK for sharding)';
@@ -172,10 +184,12 @@ CREATE TABLE IF NOT EXISTS custom_stages (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_custom_stages_project_id_name UNIQUE(project_id, name)
 );
 CREATE INDEX idx_custom_stages_project_id ON custom_stages(project_id);
 CREATE INDEX idx_custom_stages_is_system_default ON custom_stages(is_system_default);
+CREATE INDEX idx_custom_stages_is_deleted ON custom_stages(is_deleted);
 
 COMMENT ON TABLE custom_stages IS 'Project-specific workflow stages (e.g., To Do, In Progress, Done)';
 COMMENT ON COLUMN custom_stages.project_id IS 'References projects.id (no FK for sharding)';
@@ -190,10 +204,12 @@ CREATE TABLE IF NOT EXISTS custom_importance (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_custom_importance_project_id_name UNIQUE(project_id, name)
 );
 CREATE INDEX idx_custom_importance_project_id ON custom_importance(project_id);
 CREATE INDEX idx_custom_importance_is_system_default ON custom_importance(is_system_default);
+CREATE INDEX idx_custom_importance_is_deleted ON custom_importance(is_deleted);
 
 COMMENT ON TABLE custom_importance IS 'Project-specific importance levels (e.g., Low, Medium, High, Critical)';
 COMMENT ON COLUMN custom_importance.project_id IS 'References projects.id (no FK for sharding)';
@@ -210,7 +226,8 @@ CREATE TABLE IF NOT EXISTS boards (
     created_by UUID NOT NULL,
     due_date TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false
 );
 CREATE INDEX idx_boards_project_id ON boards(project_id);
 CREATE INDEX idx_boards_custom_stage_id ON boards(custom_stage_id);
@@ -218,6 +235,7 @@ CREATE INDEX idx_boards_custom_importance_id ON boards(custom_importance_id);
 CREATE INDEX idx_boards_assignee_id ON boards(assignee_id);
 CREATE INDEX idx_boards_created_by ON boards(created_by);
 CREATE INDEX idx_boards_due_date ON boards(due_date);
+CREATE INDEX idx_boards_is_deleted ON boards(is_deleted);
 
 COMMENT ON TABLE boards IS 'Kanban cards/boards within projects';
 COMMENT ON COLUMN boards.project_id IS 'References projects.id (no FK for sharding)';
@@ -232,10 +250,12 @@ CREATE TABLE IF NOT EXISTS board_roles (
     board_id UUID NOT NULL,
     custom_role_id UUID NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT uni_board_roles_board_id_custom_role_id UNIQUE(board_id, custom_role_id)
 );
 CREATE INDEX idx_board_roles_board_id ON board_roles(board_id);
 CREATE INDEX idx_board_roles_custom_role_id ON board_roles(custom_role_id);
+CREATE INDEX idx_board_roles_is_deleted ON board_roles(is_deleted);
 
 COMMENT ON TABLE board_roles IS 'Many-to-many relationship between boards and custom roles';
 COMMENT ON COLUMN board_roles.board_id IS 'References boards.id (no FK for sharding)';
@@ -250,9 +270,11 @@ CREATE TABLE IF NOT EXISTS user_role_column_order (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT idx_user_role_unique UNIQUE(user_id, project_id, custom_role_id)
 );
 CREATE INDEX idx_user_role_order ON user_role_column_order(user_id, project_id);
+CREATE INDEX idx_user_role_column_order_is_deleted ON user_role_column_order(is_deleted);
 
 COMMENT ON TABLE user_role_column_order IS 'User-specific display order for role-based board columns';
 COMMENT ON COLUMN user_role_column_order.user_id IS 'References users.id (no FK for microservice isolation)';
@@ -268,9 +290,11 @@ CREATE TABLE IF NOT EXISTS user_stage_column_order (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT idx_user_stage_unique UNIQUE(user_id, project_id, custom_stage_id)
 );
 CREATE INDEX idx_user_stage_order ON user_stage_column_order(user_id, project_id);
+CREATE INDEX idx_user_stage_column_order_is_deleted ON user_stage_column_order(is_deleted);
 
 COMMENT ON TABLE user_stage_column_order IS 'User-specific display order for stage-based board columns';
 COMMENT ON COLUMN user_stage_column_order.user_id IS 'References users.id (no FK for microservice isolation)';
@@ -287,9 +311,11 @@ CREATE TABLE IF NOT EXISTS user_board_order_in_role (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT idx_user_board_role_unique UNIQUE(user_id, project_id, custom_role_id, board_id)
 );
 CREATE INDEX idx_user_board_role_order ON user_board_order_in_role(user_id, project_id, custom_role_id);
+CREATE INDEX idx_user_board_order_in_role_is_deleted ON user_board_order_in_role(is_deleted);
 
 COMMENT ON TABLE user_board_order_in_role IS 'User-specific display order for boards within role columns';
 COMMENT ON COLUMN user_board_order_in_role.user_id IS 'References users.id (no FK for microservice isolation)';
@@ -307,9 +333,11 @@ CREATE TABLE IF NOT EXISTS user_board_order_in_stage (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
     CONSTRAINT idx_user_board_stage_unique UNIQUE(user_id, project_id, custom_stage_id, board_id)
 );
 CREATE INDEX idx_user_board_stage_order ON user_board_order_in_stage(user_id, project_id, custom_stage_id);
+CREATE INDEX idx_user_board_order_in_stage_is_deleted ON user_board_order_in_stage(is_deleted);
 
 COMMENT ON TABLE user_board_order_in_stage IS 'User-specific display order for boards within stage columns';
 COMMENT ON COLUMN user_board_order_in_stage.user_id IS 'References users.id (no FK for microservice isolation)';

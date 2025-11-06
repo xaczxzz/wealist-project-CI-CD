@@ -51,7 +51,7 @@ func (r *boardRepository) Create(board *domain.Board) error {
 
 func (r *boardRepository) FindByID(id uuid.UUID) (*domain.Board, error) {
 	var board domain.Board
-	if err := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&board).Error; err != nil {
+	if err := r.db.Where("id = ? AND is_deleted = ?", id, false).First(&board).Error; err != nil {
 		return nil, err
 	}
 	return &board, nil
@@ -61,7 +61,7 @@ func (r *boardRepository) FindByProject(projectID uuid.UUID, filters BoardFilter
 	var boards []domain.Board
 	var total int64
 
-	query := r.db.Model(&domain.Board{}).Where("project_id = ? AND deleted_at IS NULL", projectID)
+	query := r.db.Model(&domain.Board{}).Where("project_id = ? AND is_deleted = ?", projectID, false)
 
 	// Apply filters
 	if filters.StageID != uuid.Nil {
@@ -103,7 +103,7 @@ func (r *boardRepository) Update(board *domain.Board) error {
 
 func (r *boardRepository) Delete(id uuid.UUID) error {
 	// Soft delete
-	return r.db.Model(&domain.Board{}).Where("id = ?", id).Update("deleted_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
+	return r.db.Model(&domain.Board{}).Where("id = ?", id).Update("is_deleted", true).Error
 }
 
 // ==================== Board Roles (Many-to-Many) ====================
@@ -138,7 +138,7 @@ func (r *boardRepository) FindRolesByBoard(boardID uuid.UUID) ([]domain.BoardRol
 func (r *boardRepository) FindBoardsByRole(roleID uuid.UUID) ([]domain.Board, error) {
 	var boards []domain.Board
 	if err := r.db.Joins("INNER JOIN board_roles ON boards.id = board_roles.board_id").
-		Where("board_roles.custom_role_id = ? AND boards.deleted_at IS NULL", roleID).
+		Where("board_roles.custom_role_id = ? AND boards.is_deleted = ?", roleID, false).
 		Find(&boards).Error; err != nil {
 		return nil, err
 	}
@@ -157,13 +157,13 @@ func (r *boardRepository) UpdateBoardsRoleToDefault(oldRoleID, defaultRoleID uui
 func (r *boardRepository) UpdateBoardsStageToDefault(oldStageID, defaultStageID uuid.UUID) error {
 	// Update all boards using oldStageID to defaultStageID
 	return r.db.Model(&domain.Board{}).
-		Where("custom_stage_id = ? AND deleted_at IS NULL", oldStageID).
+		Where("custom_stage_id = ? AND is_deleted = ?", oldStageID, false).
 		Update("custom_stage_id", defaultStageID).Error
 }
 
 func (r *boardRepository) UpdateBoardsImportanceToDefault(oldImportanceID, defaultImportanceID uuid.UUID) error {
 	// Update all boards using oldImportanceID to defaultImportanceID
 	return r.db.Model(&domain.Board{}).
-		Where("custom_importance_id = ? AND deleted_at IS NULL", oldImportanceID).
+		Where("custom_importance_id = ? AND is_deleted = ?", oldImportanceID, false).
 		Update("custom_importance_id", defaultImportanceID).Error
 }

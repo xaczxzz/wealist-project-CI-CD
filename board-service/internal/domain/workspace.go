@@ -8,7 +8,6 @@ type Workspace struct {
 	Description string    `gorm:"type:text" json:"description"`
 	OwnerID     uuid.UUID `gorm:"type:uuid;not null" json:"owner_id"`
 	IsPublic    bool      `gorm:"default:false" json:"is_public"`
-	IsDeleted   bool      `gorm:"default:false" json:"is_deleted"`
 }
 
 func (Workspace) TableName() string {
