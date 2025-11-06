@@ -2,21 +2,18 @@ package OrangeCloud.UserRepo.service;
 
 import OrangeCloud.UserRepo.entity.Group;
 import OrangeCloud.UserRepo.entity.Team;
-import OrangeCloud.UserRepo.entity.User;
 import OrangeCloud.UserRepo.dto.team.CreateTeamRequest;
 import OrangeCloud.UserRepo.dto.team.TeamWithMembersResponse;
 import OrangeCloud.UserRepo.entity.UserInfo;
 import OrangeCloud.UserRepo.repository.TeamRepository;
 import OrangeCloud.UserRepo.repository.UserInfoRepository;
-import OrangeCloud.UserRepo.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
