@@ -9,3 +9,9 @@ localhost:9092 admin/admin 으로 접속
 5. Prometheus에서  3에서 설정한 프로메테우스 클릭후 완료
 
 6. test-api 실행시키면 cpu 증가하는것 확인 가능  
+
+## redis 추가 
+1. 대쉬보드에서 import 11692.json 파일 추가 - 데이터 소스 설정한 프로메테우스 선택
+
+## postgresql 추가
+1. 대쉬보드에서 import 9628.json 파일 추가 - 데이터 소스 설정한 프로메테우스 선택
