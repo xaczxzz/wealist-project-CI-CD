@@ -54,4 +54,11 @@ frontend/.pnp.js
 .claudeignore
 CLAUDE.md
 
-
+# Grafana
+grafana/volume/
+grafana/volume/**
+*.db
+grafana/volume/grafana.db
+grafana/volume/plugins/
+grafana/volume/log/
+grafana/volume/png/
