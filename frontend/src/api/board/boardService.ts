@@ -218,7 +218,7 @@ const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
 // 목업: Board(카드) 데이터
 const MOCK_BOARDS: BoardResponse[] = [
   {
-    boardId: 'board-1',
+    board_id: 'board-1',
     project_id: 'project-1',
     title: '로그인 페이지 구현',
     content: 'JWT 인증 방식으로 로그인/로그아웃 기능 구현',
@@ -242,7 +242,7 @@ const MOCK_BOARDS: BoardResponse[] = [
     updatedAt: '2024-01-25T00:00:00Z',
   },
   {
-    boardId: 'board-2',
+    board_id: 'board-2',
     project_id: 'project-1',
     title: 'API 엔드포인트 설계',
     content: 'RESTful API 설계 및 Swagger 문서 작성',
@@ -265,7 +265,7 @@ const MOCK_BOARDS: BoardResponse[] = [
     updatedAt: '2024-01-22T00:00:00Z',
   },
   {
-    boardId: 'board-3',
+    board_id: 'board-3',
     project_id: 'project-1',
     title: 'UI 컴포넌트 디자인',
     content: '버튼, 인풋, 모달 등 기본 컴포넌트 디자인',
@@ -289,7 +289,7 @@ const MOCK_BOARDS: BoardResponse[] = [
     updatedAt: '2024-01-18T00:00:00Z',
   },
   {
-    boardId: 'board-4',
+    board_id: 'board-4',
     project_id: 'project-1',
     title: '데이터베이스 스키마 설계',
     content: 'PostgreSQL 테이블 구조 및 관계 정의',
@@ -312,7 +312,7 @@ const MOCK_BOARDS: BoardResponse[] = [
     updatedAt: '2024-01-20T00:00:00Z',
   },
   {
-    boardId: 'board-5',
+    board_id: 'board-5',
     project_id: 'project-1',
     title: 'CI/CD 파이프라인 구축',
     content: 'GitHub Actions를 이용한 자동 배포 설정',
@@ -336,7 +336,7 @@ const MOCK_BOARDS: BoardResponse[] = [
     updatedAt: '2024-01-26T00:00:00Z',
   },
   {
-    boardId: 'board-6',
+    board_id: 'board-6',
     project_id: 'project-1',
     title: '사용자 피드백 수집',
     content: '베타 테스트 사용자 의견 정리 및 분석',
@@ -528,7 +528,7 @@ export const searchProjects = async (
 // ============================================================================
 
 export interface BoardResponse {
-  boardId: string;
+  board_id: string;
   project_id: string;
   title: string;
   content?: string;
@@ -631,17 +631,17 @@ export const getBoards = async (
 
 /**
  * 특정 보드를 조회합니다.
- * GET /api/boards/{boardId}
- * @param boardId 보드 ID
+ * GET /api/boards/{board_id}
+ * @param board_id 보드 ID
  * @param token 액세스 토큰
  * @returns 보드 정보
  */
-export const getBoard = async (boardId: string, token: string): Promise<BoardResponse> => {
+export const getBoard = async (board_id: string, token: string): Promise<BoardResponse> => {
   if (USE_MOCK_DATA) {
-    console.log('[MOCK] getBoard 호출:', boardId);
+    console.log('[MOCK] getBoard 호출:', board_id);
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const board = MOCK_BOARDS.find((b) => b.boardId === boardId);
+        const board = MOCK_BOARDS.find((b) => b.board_id === board_id);
         if (board) {
           resolve(board);
         } else {
@@ -652,7 +652,7 @@ export const getBoard = async (boardId: string, token: string): Promise<BoardRes
   }
 
   try {
-    const response = await boardService.get(`/api/boards/${boardId}`, {
+    const response = await boardService.get(`/api/boards/${board_id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data.data;
@@ -686,19 +686,19 @@ export const createBoard = async (
 
 /**
  * 보드를 업데이트합니다.
- * PUT /api/boards/{boardId}
- * @param boardId 보드 ID
+ * PUT /api/boards/{board_id}
+ * @param board_id 보드 ID
  * @param data 업데이트 정보
  * @param token 액세스 토큰
  * @returns 업데이트된 보드
  */
 export const updateBoard = async (
-  boardId: string,
+  board_id: string,
   data: Partial<CreateBoardRequest>,
   token: string,
 ): Promise<BoardResponse> => {
   try {
-    const response = await boardService.put(`/api/boards/${boardId}`, data, {
+    const response = await boardService.put(`/api/boards/${board_id}`, data, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data.data;
@@ -710,14 +710,14 @@ export const updateBoard = async (
 
 /**
  * 보드를 삭제합니다.
- * DELETE /api/boards/{boardId}
- * @param boardId 보드 ID
+ * DELETE /api/boards/{board_id}
+ * @param board_id 보드 ID
  * @param token 액세스 토큰
  * @returns 응답 메시지
  */
-export const deleteBoard = async (boardId: string, token: string): Promise<any> => {
+export const deleteBoard = async (board_id: string, token: string): Promise<any> => {
   try {
-    const response = await boardService.delete(`/api/boards/${boardId}`, {
+    const response = await boardService.delete(`/api/boards/${board_id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
@@ -1083,7 +1083,7 @@ export interface CommentResponse {
 }
 
 export interface CreateCommentRequest {
-  boardId: string;
+  board_id: string;
   content: string;
 }
 
@@ -1094,14 +1094,14 @@ export interface UpdateCommentRequest {
 /**
  * 보드의 모든 댓글을 조회합니다.
  * GET /api/comments
- * @param boardId 보드 ID
+ * @param board_id 보드 ID
  * @param token 액세스 토큰
  * @returns 댓글 배열
  */
-export const getComments = async (boardId: string, token: string): Promise<CommentResponse[]> => {
+export const getComments = async (board_id: string, token: string): Promise<CommentResponse[]> => {
   try {
     const response = await boardService.get('/api/comments', {
-      params: { boardId },
+      params: { board_id },
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data.data || [];
@@ -1187,7 +1187,7 @@ export interface RoleBasedBoardView {
     roleColor: string;
     displayOrder: number;
     boards: Array<{
-      boardId: string;
+      board_id: string;
       title: string;
       displayOrder: number;
     }>;
@@ -1203,7 +1203,7 @@ export interface StageBasedBoardView {
     stageColor: string;
     displayOrder: number;
     boards: Array<{
-      boardId: string;
+      board_id: string;
       title: string;
       displayOrder: number;
     }>;

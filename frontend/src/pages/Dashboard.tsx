@@ -178,6 +178,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
   const handleBackToSelect = () => {
     navigate('/workspaces');
   };
+
   const { theme } = useTheme();
   const currentRole = useRef<'OWNER' | 'ORGANIZER' | 'MEMBER'>('ORGANIZER');
   const canAccessSettings = currentRole.current === 'OWNER' || currentRole.current === 'ORGANIZER';
@@ -232,6 +233,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     currentLayout,
     showCompleted,
   });
+  useEffect(() => {
+    console.log(`Selected Board ID changed: ${selectedBoardId}`);
+  }, [selectedBoardId]);
 
   // Ref
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -288,6 +292,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
   useEffect(() => {
     fetchProjects();
     fetchWorkspaceMembers();
+    handleDragEnd();
   }, [fetchProjects, fetchWorkspaceMembers]);
 
   // 4. 보드 목록 조회 함수 (재사용 가능)
@@ -377,7 +382,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
 
     // Same column: reorder boards within column
     if (draggedFromColumn === targetColumnId) {
-      if (!dragOverBoardId || dragOverBoardId === draggedBoard.boardId) {
+      if (!dragOverBoardId || dragOverBoardId === draggedBoard.board_id) {
         setDraggedBoard(null);
         setDraggedFromColumn(null);
         setDragOverBoardId(null);
@@ -393,8 +398,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
       }
 
       // Reorder boards
-      const draggedIndex = targetColumn.boards.findIndex((b) => b.boardId === draggedBoard.boardId);
-      const targetIndex = targetColumn.boards.findIndex((b) => b.boardId === dragOverBoardId);
+      const draggedIndex = targetColumn.boards.findIndex(
+        (b) => b.board_id === draggedBoard.board_id,
+      );
+      const targetIndex = targetColumn.boards.findIndex((b) => b.board_id === dragOverBoardId);
 
       if (draggedIndex === -1 || targetIndex === -1) {
         setDraggedBoard(null);
@@ -431,12 +438,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     // Optimistic UI update
     const newColumns = columns.map((col) => {
       if (col.stage_id === draggedFromColumn) {
-        return { ...col, boards: col.boards.filter((t) => t.boardId !== draggedBoard.boardId) };
+        return { ...col, boards: col.boards.filter((t) => t.board_id !== draggedBoard.board_id) };
       }
       if (col.stage_id === targetColumnId) {
         // Insert at the position indicated by dragOverBoardId
         if (dragOverBoardId) {
-          const targetIndex = col.boards.findIndex((b) => b.boardId === dragOverBoardId);
+          const targetIndex = col.boards.findIndex((b) => b.board_id === dragOverBoardId);
           if (targetIndex !== -1) {
             const newBoards = [...col.boards];
             newBoards.splice(targetIndex, 0, updatedBoard);
@@ -454,7 +461,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     setDraggedFromColumn(null);
     setDragOverBoardId(null);
 
-    console.log(`✅ Board ${draggedBoard.boardId} Stage 변경 (로컬): ${targetColumnId}`);
+    console.log(`✅ Board ${draggedBoard.board_id} Stage 변경 (로컬): ${targetColumnId}`);
   };
 
   // Column drag handlers
@@ -903,8 +910,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
 
                         return sortedBoards.map((board) => (
                           <tr
-                            key={board.boardId}
-                            onClick={() => setSelectedBoardId(board.boardId)}
+                            key={board.board_id}
+                            onClick={() => setSelectedBoardId(board.board_id)}
                             className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition"
                           >
                             {/* Title */}
@@ -1066,13 +1073,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                           <div className="space-y-2 sm:space-y-3">
                             {column.boards.map((board) => (
                               <div
-                                key={board.boardId} // 보드 감싸는 최상위 div
+                                onDragEnd={handleDragEnd}
+                                key={board.board_id + column.stage_id} // 보드 감싸는 최상위 div
                                 className="relative"
                                 onDragOver={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  if (draggedBoard && draggedBoard.boardId !== board.boardId) {
-                                    setDragOverBoardId(board.boardId);
+                                  if (draggedBoard && draggedBoard.board_id !== board.board_id) {
+                                    setDragOverBoardId(board.board_id);
                                   }
                                 }}
                                 onDragLeave={(e) => {
@@ -1081,9 +1089,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                                 }}
                               >
                                 {/* Drop indicator line - shows where the dragged board will be inserted */}
-                                {dragOverBoardId === board.boardId &&
+                                {dragOverBoardId === board.board_id &&
                                   draggedBoard &&
-                                  draggedBoard.boardId !== board.boardId && (
+                                  draggedBoard.board_id !== board.board_id && (
                                     <div className="absolute -top-2 left-0 right-0 h-1 bg-blue-500 rounded-full shadow-lg shadow-blue-500/50 z-10"></div>
                                   )}
                                 <div
@@ -1094,18 +1102,20 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                                   }}
                                   // 💡 [추가] 보드 카드 드래그 종료 시 상태 초기화
                                   onDragEnd={handleDragEnd}
-                                  onClick={() => setSelectedBoardId(board.boardId)}
+                                  onClick={() => setSelectedBoardId(board.board_id)}
                                   className={`relative ${theme.colors.card} p-3 sm:p-4 ${
                                     theme.effects.cardBorderWidth
                                   } ${
                                     theme.colors.border
                                   } hover:border-blue-500 transition-all cursor-pointer ${
                                     theme.effects.borderRadius
-                                  } ${
-                                    draggedBoard?.boardId === board.boardId
+                                  } 
+                                  ${
+                                    draggedBoard?.board_id === board.board_id
                                       ? 'opacity-50 scale-95 shadow-2xl rotate-1'
                                       : 'opacity-100'
-                                  }`}
+                                  }
+                                  `}
                                 >
                                   <h3
                                     className={`font-bold ${theme.colors.text} mb-2 sm:mb-3 ${theme.font.size.xs} break-words`}
