@@ -22,7 +22,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "UserProfile", description = "사용자 프로필 조회 및 수정 API")
 @Slf4j
-public class ProfileController {
+public class UserProfileController {
 
     private final UserProfileService userProfileService;
 
