@@ -76,7 +76,7 @@ let MOCK_PROJECTS: ProjectResponse[] = [
 // 목업: Stage 데이터
 const MOCK_STAGES: CustomStageResponse[] = [
   {
-    stageId: 'stage-none',
+    stage_id: 'stage-none',
     project_id: 'project-1',
     name: '없음',
     color: '#94A3B8',
@@ -86,7 +86,7 @@ const MOCK_STAGES: CustomStageResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    stageId: 'stage-waiting',
+    stage_id: 'stage-waiting',
     project_id: 'project-1',
     name: '대기',
     color: '#F59E0B',
@@ -96,7 +96,7 @@ const MOCK_STAGES: CustomStageResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    stageId: 'stage-progress',
+    stage_id: 'stage-progress',
     project_id: 'project-1',
     name: '진행중',
     color: '#3B82F6',
@@ -106,7 +106,7 @@ const MOCK_STAGES: CustomStageResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    stageId: 'stage-done',
+    stage_id: 'stage-done',
     project_id: 'project-1',
     name: '완료',
     color: '#10B981',
@@ -120,7 +120,7 @@ const MOCK_STAGES: CustomStageResponse[] = [
 // 목업: Role 데이터
 const MOCK_ROLES: CustomRoleResponse[] = [
   {
-    roleId: 'role-none',
+    role_id: 'role-none',
     project_id: 'project-1',
     name: '없음',
     color: '#94A3B8',
@@ -130,7 +130,7 @@ const MOCK_ROLES: CustomRoleResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    roleId: 'role-frontend',
+    role_id: 'role-frontend',
     project_id: 'project-1',
     name: '프론트엔드',
     color: '#8B5CF6',
@@ -140,7 +140,7 @@ const MOCK_ROLES: CustomRoleResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    roleId: 'role-backend',
+    role_id: 'role-backend',
     project_id: 'project-1',
     name: '백엔드',
     color: '#EC4899',
@@ -150,7 +150,7 @@ const MOCK_ROLES: CustomRoleResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    roleId: 'role-design',
+    role_id: 'role-design',
     project_id: 'project-1',
     name: '디자인',
     color: '#F59E0B',
@@ -164,7 +164,7 @@ const MOCK_ROLES: CustomRoleResponse[] = [
 // 목업: Importance 데이터
 const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
   {
-    importanceId: 'importance-none',
+    importance_id: 'importance-none',
     project_id: 'project-1',
     name: '없음',
     color: '#94A3B8',
@@ -174,7 +174,7 @@ const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    importanceId: 'importance-low',
+    importance_id: 'importance-low',
     project_id: 'project-1',
     name: '낮음',
     color: '#10B981',
@@ -184,7 +184,7 @@ const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    importanceId: 'importance-medium',
+    importance_id: 'importance-medium',
     project_id: 'project-1',
     name: '보통',
     color: '#3B82F6',
@@ -194,7 +194,7 @@ const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    importanceId: 'importance-high',
+    importance_id: 'importance-high',
     project_id: 'project-1',
     name: '높음',
     color: '#F59E0B',
@@ -204,7 +204,7 @@ const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
     updatedAt: '2024-01-01T00:00:00Z',
   },
   {
-    importanceId: 'importance-urgent',
+    importance_id: 'importance-urgent',
     project_id: 'project-1',
     name: '긴급',
     color: '#EF4444',
@@ -547,11 +547,11 @@ export interface CreateBoardRequest {
   project_id: string;
   title: string;
   content?: string;
-  stageId: string;
-  roleIds: string[];
-  importanceId?: string;
-  assigneeId?: string; // 단일 담당자 (하위 호환성)
-  assigneeIds?: string[]; // 복수 담당자
+  stage_id: string;
+  role_ids: string[];
+  importance_id?: string;
+  assignee_id?: string; // 단일 담당자 (하위 호환성)
+  assignee_ids?: string[]; // 복수 담당자
   dueDate?: string;
 }
 
@@ -567,16 +567,16 @@ export interface PaginatedBoardsResponse {
  * GET /api/boards
  * @param project_id 프로젝트 ID
  * @param token 액세스 토큰
- * @param filters 필터 옵션 (stageId, roleId, importanceId, assigneeId, authorId, page, limit)
+ * @param filters 필터 옵션 (stage_id, role_id, importance_id, assigneeId, authorId, page, limit)
  * @returns 보드 배열
  */
 export const getBoards = async (
   project_id: string,
   token: string,
   filters?: {
-    stageId?: string;
-    roleId?: string;
-    importanceId?: string;
+    stage_id?: string;
+    role_id?: string;
+    importance_id?: string;
     assigneeId?: string;
     authorId?: string;
     page?: number;
@@ -590,14 +590,14 @@ export const getBoards = async (
         let filtered = MOCK_BOARDS.filter((b) => b.project_id === project_id);
 
         // 필터 적용
-        if (filters?.stageId) {
-          filtered = filtered.filter((b) => b.stage?.stageId === filters.stageId);
+        if (filters?.stage_id) {
+          filtered = filtered.filter((b) => b.stage?.stage_id === filters.stage_id);
         }
-        if (filters?.roleId) {
-          filtered = filtered.filter((b) => b.roles?.some((r) => r?.roleId === filters.roleId));
+        if (filters?.role_id) {
+          filtered = filtered.filter((b) => b.roles?.some((r) => r?.role_id === filters.role_id));
         }
-        if (filters?.importanceId) {
-          filtered = filtered.filter((b) => b.importance?.importanceId === filters.importanceId);
+        if (filters?.importance_id) {
+          filtered = filtered.filter((b) => b.importance?.importance_id === filters.importance_id);
         }
         if (filters?.assigneeId) {
           filtered = filtered.filter((b) => b.assignee?.userId === filters.assigneeId);
@@ -732,7 +732,7 @@ export const deleteBoard = async (boardId: string, token: string): Promise<any> 
 // ============================================================================
 
 export interface CustomStageResponse {
-  stageId: string;
+  stage_id: string;
   project_id: string;
   name: string;
   color?: string;
@@ -743,7 +743,7 @@ export interface CustomStageResponse {
 }
 
 export interface CustomRoleResponse {
-  roleId: string;
+  role_id: string;
   project_id: string;
   name: string;
   color?: string;
@@ -754,7 +754,7 @@ export interface CustomRoleResponse {
 }
 
 export interface CustomImportanceResponse {
-  importanceId: string;
+  importance_id: string;
   project_id: string;
   name: string;
   color?: string;
@@ -923,15 +923,15 @@ export const createStage = async (
 
 /**
  * Stage를 수정합니다.
- * PUT /api/custom-fields/stages/{stageId}
+ * PUT /api/custom-fields/stages/{stage_id}
  */
 export const updateStage = async (
-  stageId: string,
+  stage_id: string,
   data: UpdateCustomStageRequest,
   token: string,
 ): Promise<CustomStageResponse> => {
   try {
-    const response = await boardService.put(`/api/custom-fields/stages/${stageId}`, data, {
+    const response = await boardService.put(`/api/custom-fields/stages/${stage_id}`, data, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data.data;
@@ -943,11 +943,11 @@ export const updateStage = async (
 
 /**
  * Stage를 삭제합니다.
- * DELETE /api/custom-fields/stages/{stageId}
+ * DELETE /api/custom-fields/stages/{stage_id}
  */
-export const deleteStage = async (stageId: string, token: string): Promise<void> => {
+export const deleteStage = async (stage_id: string, token: string): Promise<void> => {
   try {
-    await boardService.delete(`/api/custom-fields/stages/${stageId}`, {
+    await boardService.delete(`/api/custom-fields/stages/${stage_id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   } catch (error) {
@@ -977,15 +977,15 @@ export const createRole = async (
 
 /**
  * Role을 수정합니다.
- * PUT /api/custom-fields/roles/{roleId}
+ * PUT /api/custom-fields/roles/{role_id}
  */
 export const updateRole = async (
-  roleId: string,
+  role_id: string,
   data: UpdateCustomRoleRequest,
   token: string,
 ): Promise<CustomRoleResponse> => {
   try {
-    const response = await boardService.put(`/api/custom-fields/roles/${roleId}`, data, {
+    const response = await boardService.put(`/api/custom-fields/roles/${role_id}`, data, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data.data;
@@ -997,11 +997,11 @@ export const updateRole = async (
 
 /**
  * Role을 삭제합니다.
- * DELETE /api/custom-fields/roles/{roleId}
+ * DELETE /api/custom-fields/roles/{role_id}
  */
-export const deleteRole = async (roleId: string, token: string): Promise<void> => {
+export const deleteRole = async (role_id: string, token: string): Promise<void> => {
   try {
-    await boardService.delete(`/api/custom-fields/roles/${roleId}`, {
+    await boardService.delete(`/api/custom-fields/roles/${role_id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   } catch (error) {
@@ -1031,17 +1031,21 @@ export const createImportance = async (
 
 /**
  * Importance를 수정합니다.
- * PUT /api/custom-fields/importance/{importanceId}
+ * PUT /api/custom-fields/importance/{importance_id}
  */
 export const updateImportance = async (
-  importanceId: string,
+  importance_id: string,
   data: UpdateCustomImportanceRequest,
   token: string,
 ): Promise<CustomImportanceResponse> => {
   try {
-    const response = await boardService.put(`/api/custom-fields/importance/${importanceId}`, data, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await boardService.put(
+      `/api/custom-fields/importance/${importance_id}`,
+      data,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
     return response.data.data;
   } catch (error) {
     console.error('updateImportance error:', error);
@@ -1051,11 +1055,11 @@ export const updateImportance = async (
 
 /**
  * Importance를 삭제합니다.
- * DELETE /api/custom-fields/importance/{importanceId}
+ * DELETE /api/custom-fields/importance/{importance_id}
  */
-export const deleteImportance = async (importanceId: string, token: string): Promise<void> => {
+export const deleteImportance = async (importance_id: string, token: string): Promise<void> => {
   try {
-    await boardService.delete(`/api/custom-fields/importance/${importanceId}`, {
+    await boardService.delete(`/api/custom-fields/importance/${importance_id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   } catch (error) {
@@ -1276,21 +1280,21 @@ export const updateStageColumnOrder = async (
 
 /**
  * Stage 내 Board 순서를 업데이트합니다.
- * PUT /api/projects/{project_id}/orders/stage-boards/{stageId}
+ * PUT /api/projects/{project_id}/orders/stage-boards/{stage_id}
  * @param project_id 프로젝트 ID
- * @param stageId Stage ID
+ * @param stage_id Stage ID
  * @param boardIds Board ID 배열 (순서대로)
  * @param token 액세스 토큰
  */
 export const updateStageBoardOrder = async (
   project_id: string,
-  stageId: string,
+  stage_id: string,
   boardIds: string[],
   token: string,
 ): Promise<void> => {
   try {
     await boardService.put(
-      `/api/projects/${project_id}/orders/stage-boards/${stageId}`,
+      `/api/projects/${project_id}/orders/stage-boards/${stage_id}`,
       { itemIds: boardIds },
       { headers: { Authorization: `Bearer ${token}` } },
     );
