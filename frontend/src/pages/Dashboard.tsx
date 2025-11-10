@@ -304,11 +304,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
       console.log(`[Dashboard] 보드 로드 시작 (Project: ${selectedProject.name})`);
 
       // 1. 프로젝트의 모든 Stages 조회
-      const stages = await getProjectStages(selectedProject.projectId, accessToken);
+      const stages = await getProjectStages(selectedProject.project_id, accessToken);
       console.log('✅ Stages loaded:', stages);
 
       // 2. 보드 조회
-      const boardsResponse = await getBoards(selectedProject.projectId, accessToken);
+      const boardsResponse = await getBoards(selectedProject.project_id, accessToken);
       console.log('✅ Boards loaded:', boardsResponse);
 
       // 3. Stage별로 빈 컬럼 먼저 생성
@@ -660,13 +660,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                   ) : (
                     projects.map((project) => (
                       <button
-                        key={project.projectId}
+                        key={project.project_id}
                         onClick={() => {
                           setSelectedProject(project);
                           setShowProjectSelector(false);
                         }}
                         className={`w-full px-3 py-2 text-left text-sm rounded transition truncate ${
-                          selectedProject?.projectId === project.projectId
+                          selectedProject?.project_id === project.project_id
                             ? 'bg-blue-100 text-blue-700 font-semibold'
                             : 'hover:bg-gray-100 text-gray-800'
                         }`}
@@ -1222,7 +1222,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
 
       {showCreateBoard && selectedProject && (
         <CreateBoardModal
-          projectId={selectedProject.projectId}
+          projectId={selectedProject.project_id}
           stageId={createBoardStageId}
           editData={editBoardData}
           workspaceId={currentWorkspaceId}
@@ -1252,7 +1252,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
       {/* Custom Field Manage Modal */}
       {showManageModal && selectedProject && (
         <CustomFieldManageModal
-          projectId={selectedProject.projectId}
+          projectId={selectedProject.project_id}
           onClose={() => setShowManageModal(false)}
           onFieldsUpdated={fetchBoards}
         />

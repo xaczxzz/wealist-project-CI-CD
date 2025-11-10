@@ -7,10 +7,10 @@ import { useTheme } from '../../contexts/ThemeContext';
  * - project prop이 있으면 편집 모드, 없으면 생성 모드
  */
 interface ProjectData {
-  projectId: string;
+  project_id: string;
   name: string;
   description?: string;
-  workspaceId: string;
+  workspace_id: string;
   ownerId: string;
   ownerName: string;
   ownerEmail: string;
@@ -69,7 +69,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         // 편집 모드
         const { updateProject } = await import('../../api/board/boardService');
         await updateProject(
-          project.projectId,
+          project.project_id,
           {
             name: name.trim(),
             description: description.trim() || undefined,
@@ -82,7 +82,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         const { createProject } = await import('../../api/board/boardService');
         await createProject(
           {
-            workspaceId,
+            workspace_id: workspaceId,
             name: name.trim(),
             description: description.trim() || undefined,
           },
