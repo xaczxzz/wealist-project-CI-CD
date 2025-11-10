@@ -100,10 +100,10 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
 
         // 기본값 설정
         if (!selectedStageId && stagesData.length > 0) {
-          setSelectedStageId(stagesData[0].id);
+          setSelectedStageId(stagesData[0].stageId);
         }
         if (rolesData.length > 0) {
-          setSelectedRoleId(rolesData[0].id);
+          setSelectedRoleId(rolesData[0].roleId);
         }
         // Importance는 선택 사항이므로 기본값 없음
 
@@ -185,27 +185,27 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
 
       if (type === 'stage') {
         newField = await createStage(
-          { projectId, name: newFieldName.trim(), color: newFieldColor },
+          { project_id:projectId, name: newFieldName.trim(), color: newFieldColor },
           accessToken,
         );
         setStages([...stages, newField as CustomStageResponse]);
-        setSelectedStageId(newField.id);
+        setSelectedStageId(newField.stageId);
         setShowCreateStage(false);
       } else if (type === 'role') {
         newField = await createRole(
-          { projectId, name: newFieldName.trim(), color: newFieldColor },
+          {  project_id:projectId,  name: newFieldName.trim(), color: newFieldColor },
           accessToken,
         );
         setRoles([...roles, newField as CustomRoleResponse]);
-        setSelectedRoleId(newField.id);
+        setSelectedRoleId(newField.roleId);
         setShowCreateRole(false);
       } else if (type === 'importance') {
         newField = await createImportance(
-          { projectId, name: newFieldName.trim(), color: newFieldColor, level: newImportanceLevel },
+          {  project_id:projectId,  name: newFieldName.trim(), color: newFieldColor, level: newImportanceLevel },
           accessToken,
         );
         setImportances([...importances, newField as CustomImportanceResponse]);
-        setSelectedImportanceId(newField.id);
+        setSelectedImportanceId(newField.importanceId);
         setShowCreateImportance(false);
       }
 
@@ -258,7 +258,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
 
     try {
       const boardData = {
-        projectId,
+        project_id: projectId,
         title: title.trim(),
         content: content.trim() || undefined,
         stageId: selectedStageId,
@@ -465,16 +465,16 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                   disabled={isLoading}
                 >
                   <span className="flex items-center gap-2">
-                    {selectedStageId && stages.find((s) => s.id === selectedStageId) && (
+                    {selectedStageId && stages.find((s) => s.stageId === selectedStageId) && (
                       <>
                         <span
                           className="w-3 h-3 rounded-full"
                           style={{
                             backgroundColor:
-                              stages.find((s) => s.id === selectedStageId)?.color || '#6B7280',
+                              stages.find((s) => s.stageId === selectedStageId)?.color || '#6B7280',
                           }}
                         />
-                        {stages.find((s) => s.id === selectedStageId)?.name}
+                        {stages.find((s) => s.stageId === selectedStageId)?.name}
                       </>
                     )}
                   </span>
@@ -485,14 +485,14 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {stages.map((stage) => (
                       <button
-                        key={stage.id}
+                        key={stage.stageId}
                         type="button"
                         onClick={() => {
-                          setSelectedStageId(stage.id);
+                          setSelectedStageId(stage.stageId);
                           setShowStageDropdown(false);
                         }}
                         className={`w-full px-3 py-2 text-left hover:bg-gray-100 transition text-sm flex items-center gap-2 ${
-                          selectedStageId === stage.id ? 'bg-blue-50' : ''
+                          selectedStageId === stage.stageId ? 'bg-blue-50' : ''
                         }`}
                       >
                         <span
@@ -529,16 +529,16 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                   disabled={isLoading}
                 >
                   <span className="flex items-center gap-2">
-                    {selectedRoleId && roles.find((r) => r.id === selectedRoleId) && (
+                    {selectedRoleId && roles.find((r) => r.roleId === selectedRoleId) && (
                       <>
                         <span
                           className="w-3 h-3 rounded-full"
                           style={{
                             backgroundColor:
-                              roles.find((r) => r.id === selectedRoleId)?.color || '#6B7280',
+                              roles.find((r) => r.roleId === selectedRoleId)?.color || '#6B7280',
                           }}
                         />
-                        {roles.find((r) => r.id === selectedRoleId)?.name}
+                        {roles.find((r) => r.roleId === selectedRoleId)?.name}
                       </>
                     )}
                   </span>
@@ -549,14 +549,14 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {roles.map((role) => (
                       <button
-                        key={role.id}
+                        key={role.roleId}
                         type="button"
                         onClick={() => {
-                          setSelectedRoleId(role.id);
+                          setSelectedRoleId(role.roleId);
                           setShowRoleDropdown(false);
                         }}
                         className={`w-full px-3 py-2 text-left hover:bg-gray-100 transition text-sm flex items-center gap-2 ${
-                          selectedRoleId === role.id ? 'bg-blue-50' : ''
+                          selectedRoleId === role.roleId ? 'bg-blue-50' : ''
                         }`}
                       >
                         <span
@@ -597,19 +597,19 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     {selectedImportanceId ? (
-                      importances.find((i) => i.id === selectedImportanceId) && (
+                      importances.find((i) => i.importanceId === selectedImportanceId) && (
                         <>
                           <span
                             className="w-3 h-3 rounded-full"
                             style={{
                               backgroundColor:
-                                importances.find((i) => i.id === selectedImportanceId)?.color ||
+                                importances.find((i) => i.importanceId === selectedImportanceId)?.color ||
                                 '#6B7280',
                             }}
                           />
-                          {importances.find((i) => i.id === selectedImportanceId)?.name}
-                          {'level' in (importances.find((i) => i.id === selectedImportanceId) || {})
-                            ? ` (Lv.${(importances.find((i) => i.id === selectedImportanceId) as any).level})`
+                          {importances.find((i) => i.importanceId === selectedImportanceId)?.name}
+                          {'level' in (importances.find((i) => i.importanceId === selectedImportanceId) || {})
+                            ? ` (Lv.${(importances.find((i) => i.importanceId === selectedImportanceId) as any).level})`
                             : ''}
                         </>
                       )
@@ -637,14 +637,14 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                     </button>
                     {importances.map((importance) => (
                       <button
-                        key={importance.id}
+                        key={importance.importanceId}
                         type="button"
                         onClick={() => {
-                          setSelectedImportanceId(importance.id);
+                          setSelectedImportanceId(importance.importanceId);
                           setShowImportanceDropdown(false);
                         }}
                         className={`w-full px-3 py-2 text-left hover:bg-gray-100 transition text-sm flex items-center gap-2 ${
-                          selectedImportanceId === importance.id ? 'bg-blue-50' : ''
+                          selectedImportanceId === importance.importanceId ? 'bg-blue-50' : ''
                         }`}
                       >
                         <span
@@ -653,7 +653,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                         />
                         {importance.name}
                         {'level' in importance && (
-                          <span className="text-xs text-gray-500">Lv.{importance.level}</span>
+                          <span className="text-xs text-gray-500">Lv.{importance?.level}</span>
                         )}
                       </button>
                     ))}
@@ -705,13 +705,13 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                 <div className="w-full min-h-[42px] px-2 py-1 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 bg-white flex flex-wrap items-center gap-1">
                   {/* Selected Assignees Tags Inside Input */}
                   {selectedAssigneeIds.map((userId) => {
-                    const member = workspaceMembers.find((m) => m.user_id === userId);
+                    const member = workspaceMembers.find((m) => m.userId === userId);
                     return (
                       <span
                         key={userId}
                         className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
                       >
-                        {member?.name || userId}
+                        {member?.nickName || userId}
                         <button
                           type="button"
                           onClick={() => {

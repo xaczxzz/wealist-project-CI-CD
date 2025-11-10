@@ -33,7 +33,7 @@ import { BoardDetailModal } from '../components/modals/BoardDetailModal';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
 interface Column {
-  id: string;
+  stageId: string;
   title: string;
   color?: string; // hex color from API
   boards: BoardResponse[];
@@ -331,7 +331,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
       );
 
       const columns: Column[] = sortedStages.map(({ stage, boards }) => ({
-        id: stage.stageId,
+        stageId: stage.stageId,
         title: stage.name,
         color: stage.color, // Store the color from API
         boards: boards,
@@ -384,7 +384,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
         return;
       }
 
-      const targetColumn = columns.find((col) => col.id === targetColumnId);
+      const targetColumn = columns.find((col) => col.stageId === targetColumnId);
       if (!targetColumn || !selectedProject) {
         setDraggedBoard(null);
         setDraggedFromColumn(null);
@@ -408,7 +408,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
       newBoards.splice(targetIndex, 0, removed);
 
       const newColumns = columns.map((col) => {
-        if (col.id === targetColumnId) {
+        if (col.stageId === targetColumnId) {
           return { ...col, boards: newBoards };
         }
         return col;
@@ -430,10 +430,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
 
     // Optimistic UI update
     const newColumns = columns.map((col) => {
-      if (col.id === draggedFromColumn) {
+      if (col.stageId === draggedFromColumn) {
         return { ...col, boards: col.boards.filter((t) => t.boardId !== draggedBoard.boardId) };
       }
-      if (col.id === targetColumnId) {
+      if (col.stageId === targetColumnId) {
         // Insert at the position indicated by dragOverBoardId
         if (dragOverBoardId) {
           const targetIndex = col.boards.findIndex((b) => b.boardId === dragOverBoardId);
@@ -467,13 +467,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
   };
 
   const handleColumnDrop = async (targetColumn: Column): Promise<void> => {
-    if (!draggedColumn || draggedColumn.id === targetColumn.id) {
+    if (!draggedColumn || draggedColumn.stageId === targetColumn.stageId) {
       setDraggedColumn(null);
       return;
     }
 
-    const draggedIndex = columns.findIndex((col) => col.id === draggedColumn.id);
-    const targetIndex = columns.findIndex((col) => col.id === targetColumn.id);
+    const draggedIndex = columns.findIndex((col) => col.stageId === draggedColumn.stageId);
+    const targetIndex = columns.findIndex((col) => col.stageId === targetColumn.stageId);
 
     if (draggedIndex === -1 || targetIndex === -1) {
       setDraggedColumn(null);
@@ -658,7 +658,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                   {projects.length === 0 ? (
                     <p className="text-sm text-gray-500 p-2">프로젝트가 없습니다.</p>
                   ) : (
-                    projects.map((project) => (
+                    projects?.map((project) => (
                       <button
                         key={project.project_id}
                         onClick={() => {
@@ -969,7 +969,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                       </tr>
                     </tbody>
                   </table>
-                  {columns.flatMap((col) => col.boards).length === 0 && (
+                  {columns?.flatMap((col) => col.boards).length === 0 && (
                     <div className="text-center py-12 text-gray-500">
                       보드가 없습니다. 보드를 추가해보세요.
                     </div>
@@ -981,7 +981,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                   {(() => {
                     // Filter columns based on search query
                     const filteredColumns = searchQuery.trim()
-                      ? columns.map((column) => ({
+                      ? columns?.map((column) => ({
                           ...column,
                           boards: column.boards.filter((board) => {
                             const query = searchQuery.toLowerCase();
@@ -992,16 +992,16 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                         }))
                       : columns;
 
-                    return filteredColumns.map((column, idx) => (
+                    return filteredColumns?.map((column, idx) => (
                       <div
-                        key={column.id}
+                        key={column.stageId}
                         draggable
                         onDragStart={() => handleColumnDragStart(column)}
                         onDragOver={(e) => {
                           handleDragOver(e);
                           handleColumnDragOver(e);
                           if (draggedBoard && !draggedColumn) {
-                            setDragOverColumn(column.id);
+                            setDragOverColumn(column.stageId);
                           }
                         }}
                         onDragLeave={() => {
@@ -1013,18 +1013,19 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                           if (draggedColumn) {
                             handleColumnDrop(column);
                           } else {
-                            handleDrop(column.id);
+                            handleDrop(column.stageId);
                           }
                         }}
                         className={`w-full lg:w-80 lg:flex-shrink-0 relative transition-all cursor-move ${
-                          draggedColumn?.id === column.id
+                          draggedColumn?.stageId === column.stageId
                             ? 'opacity-50 scale-95 shadow-2xl rotate-2'
                             : 'opacity-100'
                         }`}
                       >
                         <div
                           className={`relative ${theme.effects.cardBorderWidth} ${
-                            dragOverColumn === column.id && draggedFromColumn !== column.id
+                            dragOverColumn === column.stageId &&
+                            draggedFromColumn !== column.stageId
                               ? 'border-blue-500 border-2 bg-blue-50 dark:bg-blue-900/20 shadow-lg'
                               : theme.colors.border
                           } p-3 sm:p-4 ${theme.colors.card} ${
@@ -1077,7 +1078,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                                   draggable
                                   onDragStart={(e) => {
                                     e.stopPropagation();
-                                    handleDragStart(board, column.id);
+                                    handleDragStart(board, column.stageId);
                                   }}
                                   onClick={() => setSelectedBoardId(board.boardId)}
                                   className={`relative ${theme.colors.card} p-3 sm:p-4 ${
@@ -1107,7 +1108,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                             ))}
 
                             {/* Drop indicator for empty column or below all boards */}
-                            {dragOverColumn === column.id &&
+                            {dragOverColumn === column.stageId &&
                               draggedBoard &&
                               !draggedColumn &&
                               !dragOverBoardId && (
@@ -1119,14 +1120,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
                             <button
                               className={`relative w-full py-3 sm:py-4 ${theme.effects.cardBorderWidth} border-dashed ${theme.colors.border} ${theme.colors.card} hover:bg-gray-100 transition flex items-center justify-center gap-2 ${theme.font.size.xs} ${theme.effects.borderRadius}`}
                               onClick={() => {
-                                setCreateBoardStageId(column.id);
+                                setCreateBoardStageId(column.stageId);
                                 setShowCreateBoard(true);
                               }}
                               onDragOver={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 if (draggedBoard && !draggedColumn) {
-                                  setDragOverColumn(column.id);
+                                  setDragOverColumn(column.stageId);
                                   setDragOverBoardId(null);
                                 }
                               }}
