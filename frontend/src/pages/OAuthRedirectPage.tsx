@@ -24,12 +24,14 @@ const OAuthRedirectPage: React.FC = () => {
     // 1. URLSearchParams를 사용하여 쿼리 파라미터 파싱
     const params = new URLSearchParams(location.search);
     const accessToken = params.get('accessToken');
+    const refreshToken = params.get('refreshToken');
     const userId = params.get('userId');
     const email = params.get('email'); // (필요하다면)
 
-    if (accessToken && userId) {
+    if (accessToken && refreshToken && userId) {
       // 2. 토큰과 유저 ID를 localStorage에 저장
       localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('userId', userId);
       if (email) {
         localStorage.setItem('userEmail', email); // 이메일도 저장
@@ -37,6 +39,7 @@ const OAuthRedirectPage: React.FC = () => {
 
       console.log('✅ 토큰 저장 성공:', {
         accessToken: accessToken.substring(0, 10) + '...',
+        refreshToken: refreshToken.substring(0, 10) + '...',
         userId,
       });
 
