@@ -56,12 +56,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
   // 기본 프로필 상태
   const [defaultProfile, setDefaultProfile] = useState<UserProfileResponse | null>(null);
   const [defaultNickName, setDefaultNickName] = useState('');
-  const [defaultEmail, setDefaultEmail] = useState('');
 
   // 워크스페이스 프로필 상태
   const [workspaceProfile, setWorkspaceProfile] = useState<UserProfileResponse | null>(null);
   const [workspaceNickName, setWorkspaceNickName] = useState('');
-  const [workspaceEmail, setWorkspaceEmail] = useState('');
 
   // 프로필 이미지 미리보기 URL
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
@@ -92,7 +90,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
 
         setDefaultProfile(profile);
         setDefaultNickName(profile.nickName);
-        setDefaultEmail(profile.email || '');
 
         setWorkspaces(workspaceList);
         if (workspaceList.length > 0) {
@@ -125,7 +122,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
         if (profile) {
           setWorkspaceProfile(profile);
           setWorkspaceNickName(profile.nickName);
-          setWorkspaceEmail(profile.email || '');
         } else {
           // 프로필이 없으면 기본 프로필 정보로 초기화
           setWorkspaceProfile(null);
@@ -133,7 +129,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
           setWorkspaceNickName(
             `${defaultProfile?.nickName || ''} (${workspace?.workspaceName || ''})`,
           );
-          setWorkspaceEmail(defaultProfile?.email || '');
         }
       } catch (err) {
         console.error('[Workspace Profile Load Error]', err);
@@ -143,7 +138,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
         setWorkspaceNickName(
           `${defaultProfile?.nickName || ''} (${workspace?.workspaceName || ''})`,
         );
-        setWorkspaceEmail(defaultProfile?.email || '');
       }
     };
 
@@ -197,7 +191,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
         const updatedProfile = await updateMyProfile(
           {
             nickName: defaultNickName,
-            email: defaultEmail || undefined,
             profileImageUrl: avatarPreviewUrl || undefined,
           },
           token,
@@ -211,7 +204,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
           selectedWorkspaceId,
           {
             nickName: workspaceNickName,
-            email: workspaceEmail || undefined,
             profileImageUrl: avatarPreviewUrl || undefined,
           },
           token,
@@ -251,9 +243,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
   const currentProfile =
     activeTab === 'default' ? defaultProfile : workspaceProfile || defaultProfile;
   const currentNickName = activeTab === 'default' ? defaultNickName : workspaceNickName;
-  const currentEmail = activeTab === 'default' ? defaultEmail : workspaceEmail;
   const setCurrentNickName = activeTab === 'default' ? setDefaultNickName : setWorkspaceNickName;
-  const setCurrentEmail = activeTab === 'default' ? setDefaultEmail : setWorkspaceEmail;
 
   // ========================================
   // 렌더링
@@ -388,20 +378,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
               </div>
             </div>
 
-            {/* 사용자 ID */}
-            <div>
-              <label className={`block ${theme.font.size.xs} mb-2 text-gray-500 font-medium`}>
-                사용자 ID:
-              </label>
-              <input
-                type="text"
-                readOnly
-                disabled
-                value={currentProfile?.userId || ''}
-                className="w-full px-3 py-2 border border-gray-300 text-gray-700 text-xs rounded-md disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-              />
-            </div>
-
             {/* 닉네임 */}
             <div>
               <label className={`block ${theme.font.size.xs} mb-2 text-gray-500 font-medium`}>
@@ -413,20 +389,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
                 onChange={(e) => setCurrentNickName(e.target.value)}
                 className={`w-full px-3 py-2 ${theme.effects.cardBorderWidth} ${theme.colors.border} ${theme.colors.card} ${theme.font.size.xs} ${theme.effects.borderRadius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 placeholder="닉네임을 입력하세요"
-              />
-            </div>
-
-            {/* 이메일 */}
-            <div>
-              <label className={`block ${theme.font.size.xs} mb-2 text-gray-500 font-medium`}>
-                이메일:
-              </label>
-              <input
-                type="email"
-                value={currentEmail}
-                onChange={(e) => setCurrentEmail(e.target.value)}
-                className={`w-full px-3 py-2 ${theme.effects.cardBorderWidth} ${theme.colors.border} ${theme.colors.card} ${theme.font.size.xs} ${theme.effects.borderRadius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                placeholder="이메일을 입력하세요"
               />
             </div>
 

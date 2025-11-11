@@ -4,7 +4,6 @@ import OrangeCloud.UserRepo.entity.UserProfile;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*; // * 사용 시 모든 어노테이션 임포트
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter 
