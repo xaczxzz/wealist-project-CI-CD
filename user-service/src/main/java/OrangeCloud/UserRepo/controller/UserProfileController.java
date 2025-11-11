@@ -38,13 +38,12 @@ public class UserProfileController {
      * 내 프로필 조회
      * GET /api/profiles/me
      */
-    @GetMapping("/me")
-    @Operation(summary = "내 프로필 조회", description = "현재 인증된 사용자의 프로필을 조회합니다.")
+   @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getMyProfile(Principal principal) {
         UUID userId = extractUserId(principal);
-        // UserProfile 엔티티를 받아 DTO로 변환
-        UserProfile profile = userProfileService.getProfile(userId);
-        return ResponseEntity.ok(UserProfileResponse.from(profile)); 
+        // 💡 Service가 DTO를 반환하도록 변경했으므로, 여기서 변환 과정이 필요 없습니다.
+        UserProfileResponse response = userProfileService.getProfile(userId);
+        return ResponseEntity.ok(response); 
     }
 
     /**

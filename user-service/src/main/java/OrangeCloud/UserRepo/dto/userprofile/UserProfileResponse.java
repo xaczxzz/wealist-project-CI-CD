@@ -20,10 +20,6 @@ public class UserProfileResponse {
     private String nickName;
     private String email;
     private String profileImageUrl;
-
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    
     // 💡 정적 팩토리 메서드는 그대로 유지
     public static UserProfileResponse from(UserProfile profile) {
         return UserProfileResponse.builder()
@@ -32,8 +28,6 @@ public class UserProfileResponse {
                 .nickName(profile.getNickName())
                 .email(profile.getEmail())
                 .profileImageUrl(profile.getProfileImageUrl())
-                .createdAt(profile.getCreatedAt())
-                .updatedAt(profile.getUpdatedAt())
                 .build();
     }
 }

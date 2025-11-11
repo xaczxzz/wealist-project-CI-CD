@@ -4,9 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize; // 💡 임포트 추가
-import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer; // 💡 임포트 추가
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -17,7 +14,6 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class UserProfile {
 
     @Id
@@ -39,12 +35,10 @@ public class UserProfile {
 
     @CreationTimestamp
     @Column(name = "createdAt", updatable = false)
-    @JsonSerialize(using = LocalDateTimeSerializer.class)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updatedAt")
-    @JsonSerialize(using = LocalDateTimeSerializer.class)
     private LocalDateTime updatedAt;
 
     // =========================================================================
