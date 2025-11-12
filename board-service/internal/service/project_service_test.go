@@ -42,6 +42,11 @@ func setupProjectServiceTest(t *testing.T) *ProjectServiceTestSuite {
 		projectRepo,
 		roleRepo,
 		fieldRepo,
+		nil, // boardRepo
+		nil, // projectFieldRepo
+		nil, // fieldOptionRepo
+		nil, // boardOrderRepo
+		nil, // viewRepo
 		userClient,
 		workspaceCache,
 		userInfoCache,
