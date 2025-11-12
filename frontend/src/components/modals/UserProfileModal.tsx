@@ -27,13 +27,6 @@ interface UserProfileModalProps {
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   const { theme } = useTheme();
-  // token은 인증 상태 확인용으로만 유지됩니다.
-  const { token } = useAuth();
-
-  // ========================================
-  // 상태 관리
-  // ========================================
-
   const [activeTab, setActiveTab] = useState<'default' | 'workspace'>('default');
 
   // 💡 [핵심] 모든 프로필 데이터를 저장 (API 로직 변경 반영)
@@ -62,11 +55,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   // ========================================
 
   // 기본 프로필
-  const defaultProfile = allProfiles.find((p) => p.workspaceId === null) || null;
+  const defaultProfile = allProfiles?.find((p) => p.workspaceId === null) || null;
 
   // 선택된 워크스페이스 프로필
   const currentWorkspaceProfile =
-    allProfiles.find((p) => p.workspaceId === selectedWorkspaceId) || null;
+    allProfiles?.find((p) => p.workspaceId === selectedWorkspaceId) || null;
 
   // 현재 활성 탭의 프로필 및 입력 상태 결정
   const currentProfile =
@@ -92,9 +85,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
 
         setAllProfiles(allProfs);
 
-        const initialDefaultProfile = allProfs.find((p) => p.workspaceId === null);
+        const initialDefaultProfile = allProfs?.find((p) => p.workspaceId === null);
         if (initialDefaultProfile) {
-          setDefaultNickName(initialDefaultProfile.nickName);
+          setDefaultNickName(initialDefaultProfile?.nickName);
         }
 
         setWorkspaces(workspaceList);
@@ -115,7 +108,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   // 💡 [추가] 워크스페이스 변경 시 닉네임 입력 필드 상태 업데이트
   useEffect(() => {
     if (activeTab === 'workspace') {
-      const workspace = workspaces.find((ws) => ws.workspaceId === selectedWorkspaceId);
+      const workspace = workspaces?.find((ws) => ws.workspaceId === selectedWorkspaceId);
 
       if (currentWorkspaceProfile) {
         // 1. 이미 존재하는 워크스페이스 프로필이 있다면 로드
@@ -187,7 +180,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
 
         // 로컬 상태 업데이트
         setAllProfiles((prev) => {
-          const index = prev.findIndex((p) => p.workspaceId === null);
+          const index = prev?.findIndex((p) => p.workspaceId === null);
           if (index !== -1) {
             const newProfiles = [...prev];
             newProfiles[index] = updatedProfile;
@@ -206,7 +199,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
 
         // 로컬 상태 업데이트
         setAllProfiles((prev) => {
-          const index = prev.findIndex((p) => p.workspaceId === selectedWorkspaceId);
+          const index = prev?.findIndex((p) => p.workspaceId === selectedWorkspaceId);
           if (index !== -1) {
             const newProfiles = [...prev];
             newProfiles[index] = updatedProfile;
@@ -215,7 +208,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
           return [...prev, updatedProfile];
         });
 
-        const workspaceName_display = workspaces.find(
+        const workspaceName_display = workspaces?.find(
           (ws) => ws.workspaceId === selectedWorkspaceId,
         )?.workspaceName;
         alert(`${workspaceName_display} 프로필이 저장되었습니다. (⚠️ 실제 API 미구현)`);
