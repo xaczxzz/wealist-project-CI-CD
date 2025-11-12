@@ -13,6 +13,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import OrangeCloud.UserRepo.dto.userprofile.UpdateProfileRequest;
+
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -55,6 +57,40 @@ public class UserProfileService {
         // 💡 수정: DTO를 반환하도록 로직을 유지
         return UserProfileResponse.from(profile);
     }
+    @Transactional(readOnly = true)
+    @Cacheable(value = "userProfile", key = "#userId")
+    // 💡 수정: 반환 타입을 UserProfileResponse DTO로 변경
+    public UserProfileResponse workSpaceIdGetProfile(UUID workspaceId,UUID userId) {
+        log.info("[Cacheable] Attempting to retrieve profile from DB for user: {}", userId);
+
+        // DB 조회 (UserProfile 엔티티)
+        UserProfile profile = userProfileRepository.findByWorkspaceIdAndUserId(workspaceId,userId)
+                // 💡 수정: 정의된 UserNotFoundException을 사용
+                .orElseThrow(() -> new UserNotFoundException("프로필을 찾을 수 없습니다."));
+
+        // 💡 수정: DTO를 반환하도록 로직을 유지
+        return UserProfileResponse.from(profile);
+    }
+
+    // 해당 사용자id에 따른 모든 프로필 가져오기
+    @Transactional(readOnly = true)
+    @Cacheable(value = "userProfiles", key = "#userId")
+    public List<UserProfileResponse> getAllProfiles(UUID userId) {
+        log.info("[Cacheable] Attempting to retrieve all profiles from DB for user: {}", userId);
+
+        // DB 조회 (해당 사용자의 모든 UserProfile 엔티티)
+        List<UserProfile> profiles = userProfileRepository.findAllByUserId(userId);
+
+        if (profiles.isEmpty()) {
+            throw new UserNotFoundException("사용자의 프로필을 찾을 수 없습니다.");
+        }
+
+        // DTO 변환 후 반환
+        return profiles.stream()
+                .map(UserProfileResponse::from)
+                .toList();
+    }
+
 
 
     /**

@@ -31,5 +31,9 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> 
 
     // 워크스페이스별 프로필 존재 여부 확인
     boolean existsByUserIdAndWorkspaceId(UUID userId, UUID workspaceId);
+    int countByUserId(UUID userId);
+
+
+
 
 }

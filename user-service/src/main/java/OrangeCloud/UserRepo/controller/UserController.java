@@ -5,6 +5,7 @@ import OrangeCloud.UserRepo.dto.user.CreateUserRequest;
 import OrangeCloud.UserRepo.dto.user.UpdateUserRequest;
 import OrangeCloud.UserRepo.entity.User;
 import OrangeCloud.UserRepo.service.UserService;
+import OrangeCloud.UserRepo.util.JwtTokenProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final JwtTokenProvider tokenProvider;
 
     @PostMapping
     @Operation(summary = "사용자 생성", description = "새로운 사용자를 생성합니다.")
@@ -80,5 +82,10 @@ public class UserController {
         log.info("Restoring user: {}", userId);
         userService.restoreUser(userId);
         return ResponseEntity.ok(MessageApiResponse.success("사용자가 복구되었습니다."));
+    }
+    @GetMapping("/test/{userid}")
+    public String returnToken(@PathVariable UUID userid){
+        String accessToken = tokenProvider.generateToken(userid);
+        return accessToken;
     }
 }

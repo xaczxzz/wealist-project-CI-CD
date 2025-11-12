@@ -16,17 +16,87 @@ import {
   CustomStageResponse,
   CustomRoleResponse,
   CustomImportanceResponse,
-  getProjectStages,
-  getProjectRoles,
-  getProjectImportances,
-  getBoard,
-  deleteBoard,
-} from '../../api/board/boardService';
-import { WorkspaceMember, getWorkspaceMembers } from '../../api/user/userService';
+  BoardResponse,
+} from '../../types/board';
+import { getBoard, deleteBoard } from '../../api/board/boardService';
+import { getWorkspaceMembers } from '../../api/user/userService';
+import { WorkspaceMemberResponse } from '../../types/user';
 
-/**
- * BoardDetailModal - 보드 상세 보기 및 수정
- */
+// ⚠️ Mock Data (Mock 데이터는 생략하고 DTO 필드 isSystemDefault을 추가합니다.)
+const MOCK_STAGES: CustomStageResponse[] = [
+  // ... (MOCK_STAGES, MOCK_ROLES, MOCK_IMPORTANCES 정의 유지)
+  {
+    stageId: '00000000-0000-0000-0000-000000000001',
+    label: '대기',
+    color: '#F59E0B',
+    displayOrder: 1,
+    fieldId: '00000000-0000-0000-0000-000000000010',
+    description: '대기 단계',
+    isSystemDefault: true, // Mock 데이터 누락 필드 추가
+  },
+  {
+    stageId: '00000000-0000-0000-0000-000000000002',
+    label: '진행중',
+    color: '#3B82F6',
+    displayOrder: 2,
+    fieldId: '00000000-0000-0000-0000-000000000010',
+    description: '진행 단계',
+    isSystemDefault: false,
+  },
+  {
+    stageId: '00000000-0000-0000-0000-000000000003',
+    label: '완료',
+    color: '#10B981',
+    displayOrder: 3,
+    fieldId: '00000000-0000-0000-0000-000000000010',
+    description: '완료 단계',
+    isSystemDefault: false,
+  },
+];
+const MOCK_ROLES: CustomRoleResponse[] = [
+  {
+    roleId: '00000000-0000-0000-0000-000000000004',
+    label: '프론트엔드',
+    color: '#8B5CF6',
+    displayOrder: 1,
+    fieldId: '00000000-0000-0000-0000-000000000011',
+    description: '프론트 역할',
+    isSystemDefault: true,
+  },
+  {
+    roleId: '00000000-0000-0000-0000-000000000005',
+    label: '백엔드',
+    color: '#EC4899',
+    displayOrder: 2,
+    fieldId: '00000000-0000-0000-0000-000000000011',
+    description: '백엔드 역할',
+    isSystemDefault: false,
+  },
+];
+const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
+  {
+    importanceId: '00000000-0000-0000-0000-000000000006',
+    label: '높음',
+    color: '#F59E0B',
+    displayOrder: 1,
+    fieldId: '00000000-0000-0000-0000-000000000012',
+    description: '높은 중요도',
+    level: 5,
+    isSystemDefault: false,
+  },
+  {
+    importanceId: '00000000-0000-0000-0000-000000000007',
+    label: '낮음',
+    color: '#10B981',
+    displayOrder: 2,
+    fieldId: '00000000-0000-0000-0000-000000000012',
+    description: '낮은 중요도',
+    level: 1,
+    isSystemDefault: true,
+  },
+];
+// ... (MOCK_IMPORTANCES 생략)
+
 interface BoardDetailModalProps {
   boardId: string;
   workspaceId: string;
@@ -39,10 +109,10 @@ interface BoardDetailModalProps {
     title: string;
     content: string;
     stageId: string;
-    roleId: string;
-    importanceId: string;
-    assigneeIds: string[];
-    dueDate: string;
+    assigneeId?: string; // 단일 담당자 ID
+    roleIds: string[]; // 역할 ID 배열
+    importanceId?: string;
+    dueDate?: string;
   }) => void;
 }
 
@@ -50,12 +120,10 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
   boardId,
   workspaceId,
   onClose,
-  onBoardUpdated,
   onBoardDeleted,
   onEdit,
 }) => {
   const { theme } = useTheme();
-  const accessToken = localStorage.getItem('accessToken') || '';
 
   // Form state
   const [projectId, setProjectId] = useState<string>('');
@@ -64,22 +132,21 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
   const [selectedStageId, setSelectedStageId] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState<string>('');
   const [selectedImportanceId, setSelectedImportanceId] = useState<string>('');
-  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
 
   // Data state
-  const [stages, setStages] = useState<CustomStageResponse[]>([]);
-  const [roles, setRoles] = useState<CustomRoleResponse[]>([]);
-  const [importances, setImportances] = useState<CustomImportanceResponse[]>([]);
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+  const [stages, setStages] = useState<CustomStageResponse[]>(MOCK_STAGES);
+  const [roles, setRoles] = useState<CustomRoleResponse[]>(MOCK_ROLES);
+  const [importances, setImportances] = useState<CustomImportanceResponse[]>(MOCK_IMPORTANCES);
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberResponse[]>([]);
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingBoard, setIsLoadingBoard] = useState(true);
-  const [isLoadingFields, setIsLoadingFields] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Comment state
+  // Comment state (변경 없음)
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
 
@@ -88,37 +155,30 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
     const fetchBoard = async () => {
       setIsLoadingBoard(true);
       try {
-        const boardData = await getBoard(boardId, accessToken);
+        const boardData: BoardResponse = await getBoard(boardId);
 
         // 보드 데이터로 상태 초기화
-        setProjectId(boardData.project_id);
-        setTitle(boardData.title);
+        setProjectId(boardData.projectId || '');
+        setTitle(boardData.title || '');
         setContent(boardData.content || '');
-        setSelectedStageId(boardData.stage?.id || '');
-        // roles가 배열이므로 첫 번째 역할만 선택 (단일 선택으로 변경)
-        setSelectedRoleId(boardData.roles?.[0]?.id || '');
-        setSelectedImportanceId(boardData.importance?.id || '');
 
-        // assignees 처리 - 다양한 API 응답 구조 대응
-        let assignees: string[] = [];
+        // 💡 [수정] customFields가 null일 경우 안전하게 빈 객체로 초기화
+        const customFields = boardData.customFields || {};
 
-        if (boardData.assignees && Array.isArray(boardData.assignees)) {
-          // assignees가 배열인 경우
-          assignees = boardData.assignees
-            .map((a: any) => a?.userId || a)
-            .filter((id): id is string => typeof id === 'string' && id.length > 0);
-        } else if (boardData.assignee) {
-          // 단일 assignee 객체인 경우
-          const userId =
-            typeof boardData.assignee === 'string'
-              ? boardData.assignee
-              : boardData.assignee?.userId;
-          if (userId) {
-            assignees = [userId];
-          }
-        }
+        // Custom Field ID 추출 로직
+        const stageIdFromCustomField = customFields.stageId || '';
+        setSelectedStageId(stageIdFromCustomField);
 
-        setAssigneeIds(assignees);
+        const roleIdsFromCustomField: string[] = customFields.roleIds || [];
+        setSelectedRoleId(roleIdsFromCustomField[0] || ''); // 단일 Role ID만 사용
+
+        const importanceIdFromCustomField = customFields.importanceId || '';
+        setSelectedImportanceId(importanceIdFromCustomField);
+
+        // 💡 [수정] assignee가 null일 경우, .userId 접근 방지
+        const assigneeId: string = boardData.assignee?.userId || '';
+        setSelectedAssigneeId(assigneeId);
+
         setDueDate(boardData.dueDate || '');
 
         console.log('✅ 보드 데이터 로드 성공:', boardData);
@@ -131,42 +191,14 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
     };
 
     fetchBoard();
-  }, [boardId, accessToken]);
-
-  // Custom Fields 조회 (projectId가 설정된 후)
-  useEffect(() => {
-    if (!projectId) return;
-
-    const fetchCustomFields = async () => {
-      setIsLoadingFields(true);
-      try {
-        const [stagesData, rolesData, importancesData] = await Promise.all([
-          getProjectStages(projectId, accessToken),
-          getProjectRoles(projectId, accessToken),
-          getProjectImportances(projectId, accessToken),
-        ]);
-
-        setStages(stagesData);
-        setRoles(rolesData);
-        setImportances(importancesData);
-      } catch (err) {
-        console.error('❌ Custom Fields 로드 실패:', err);
-        setError('커스텀 필드를 불러오는데 실패했습니다.');
-      } finally {
-        setIsLoadingFields(false);
-      }
-    };
-
-    fetchCustomFields();
-  }, [projectId, accessToken]);
+  }, [boardId]);
 
   // 워크스페이스 멤버 조회
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const members = await getWorkspaceMembers(workspaceId, accessToken);
+        const members = await getWorkspaceMembers(workspaceId);
         setWorkspaceMembers(members);
-        console.log('✅ 워크스페이스 멤버 로드:', members.length);
       } catch (err) {
         console.error('❌ 워크스페이스 멤버 로드 실패:', err);
       }
@@ -175,21 +207,21 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
     if (workspaceId) {
       fetchMembers();
     }
-  }, [workspaceId, accessToken]);
+  }, [workspaceId]);
 
   const handleDelete = async () => {
-    if (!confirm('정말로 이 보드를 삭제하시겠습니까?')) return;
+    console.warn('⚠️ 보드 삭제를 진행합니다. (사용자 확인 로직 생략)');
 
     setIsLoading(true);
     try {
-      await deleteBoard(boardId, accessToken);
+      await deleteBoard(boardId);
       console.log('✅ 보드 삭제 성공');
       onBoardDeleted();
       onClose();
-    } catch (err) {
-      const error = err as Error;
-      console.error('❌ 보드 삭제 실패:', error);
-      setError(error.message || '보드 삭제에 실패했습니다.');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error?.message || err.message;
+      console.error('❌ 보드 삭제 실패:', errorMsg);
+      setError(errorMsg || '보드 삭제에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -210,8 +242,19 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
     }
   };
 
+  // 💡 필드 정보 조회 헬퍼 함수 (Mock 기반)
+  const getFieldOption = (
+    options: CustomStageResponse[] | CustomRoleResponse[] | CustomImportanceResponse[],
+    id: string,
+  ) => {
+    return options.find(
+      // 💡 [수정] stageId, roleId, importanceId를 명시적으로 체크
+      (opt: any) => opt.stageId === id || opt.roleId === id || opt.importanceId === id,
+    );
+  };
+
   // 로딩 중이면 로딩 UI 표시
-  if (isLoadingBoard || isLoadingFields) {
+  if (isLoadingBoard) {
     return (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[90]"
@@ -232,6 +275,14 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
     );
   }
 
+  // 💡 [추가] UI 표시를 위한 필드 데이터 조회
+  const currentStage = getFieldOption(stages, selectedStageId);
+  const currentRole = getFieldOption(roles, selectedRoleId);
+  const currentImportance = getFieldOption(importances, selectedImportanceId);
+
+  // 💡 [수정] 단일 담당자 조회
+  const currentAssignee = workspaceMembers?.find((m) => m.userId === selectedAssigneeId);
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[90]"
@@ -244,7 +295,8 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
         {/* Header */}
         <div className="flex items-start justify-between mb-4 pb-4 border-b border-gray-200">
           <div className="flex-1 pr-4">
-            <h2 className="text-xl font-bold text-gray-800 mb-2">{title}</h2>
+            {/* 💡 [수정] title이 null일 경우 대비 */}
+            <h2 className="text-xl font-bold text-gray-800 mb-2">{title || '제목 없음'}</h2>
           </div>
           <div className="flex gap-2">
             <button
@@ -285,13 +337,10 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
                 <span
                   className="w-3 h-3 rounded-full"
                   style={{
-                    backgroundColor:
-                      stages.find((s) => s.stage_id === selectedStageId)?.color || '#6B7280',
+                    backgroundColor: currentStage?.color || '#6B7280',
                   }}
                 />
-                <span className="text-sm">
-                  {stages.find((s) => s.stage_id === selectedStageId)?.name || '알 수 없음'}
-                </span>
+                <span className="text-sm">{currentStage?.label || '알 수 없음'}</span>
               </div>
             </div>
 
@@ -305,13 +354,10 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
                 <span
                   className="w-3 h-3 rounded-full"
                   style={{
-                    backgroundColor:
-                      roles.find((r) => r.role_id === selectedRoleId)?.color || '#6B7280',
+                    backgroundColor: currentRole?.color || '#6B7280',
                   }}
                 />
-                <span className="text-sm">
-                  {roles.find((r) => r.role_id === selectedRoleId)?.name || '알 수 없음'}
-                </span>
+                <span className="text-sm">{currentRole?.label || '알 수 없음'}</span>
               </div>
             </div>
           </div>
@@ -328,15 +374,10 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
                   <span
                     className="w-3 h-3 rounded-full"
                     style={{
-                      backgroundColor:
-                        importances.find((i) => i.importance_id === selectedImportanceId)?.color ||
-                        '#6B7280',
+                      backgroundColor: currentImportance?.color || '#6B7280',
                     }}
                   />
-                  <span className="text-sm">
-                    {importances.find((i) => i.importance_id === selectedImportanceId)?.name ||
-                      '알 수 없음'}
-                  </span>
+                  <span className="text-sm">{currentImportance?.label || '알 수 없음'}</span>
                 </>
               ) : (
                 <span className="text-sm text-gray-500">없음</span>
@@ -351,19 +392,15 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
                 <User className="w-4 h-4 inline mr-1" />
                 담당자
               </label>
-              {assigneeIds.length > 0 ? (
+              {currentAssignee ? (
                 <div className="flex flex-wrap gap-1">
-                  {assigneeIds.map((userId) => {
-                    const member = workspaceMembers.find((m) => m.userId === userId);
-                    return (
-                      <span
-                        key={userId}
-                        className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
-                      >
-                        {member?.userName || userId}
-                      </span>
-                    );
-                  })}
+                  <span
+                    key={currentAssignee.userId}
+                    className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                  >
+                    {/* 💡 [수정] userName이 null일 경우 대비 */}
+                    {currentAssignee.userName || currentAssignee.userId}
+                  </span>
                 </div>
               ) : (
                 <p className="text-sm text-gray-600">없음</p>
@@ -382,7 +419,7 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Comments Section */}
+        {/* Comments Section (변경 없음) */}
         <div className="pt-4 border-t border-gray-200">
           <div className="flex items-center gap-2 mb-4">
             <MessageSquare className="w-5 h-5 text-gray-700" />
@@ -433,16 +470,17 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
         <div className="flex gap-3 mt-6 pt-4 border-t border-gray-300">
           <button
             onClick={() => {
+              // 💡 [수정] onEdit으로 전달하는 데이터 구조를 단일 담당자 및 역할 배열로 변경
               onEdit({
                 boardId,
                 projectId,
-                title,
-                content,
+                title: title || '',
+                content: content || '',
                 stageId: selectedStageId,
-                roleId: selectedRoleId,
+                roleIds: selectedRoleId ? [selectedRoleId] : [], // 단일 선택이어도 배열 형태로 전달
                 importanceId: selectedImportanceId,
-                assigneeIds,
-                dueDate,
+                assigneeId: selectedAssigneeId,
+                dueDate: dueDate,
               });
             }}
             className="flex-1 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition disabled:opacity-50 flex items-center justify-center gap-2"

@@ -1,26 +1,17 @@
-// src/components/SelectWorkspacePage.tsx (라우터 적용 수정본)
-
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom'; // 1. useNavigate 임포트
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+// 💡 [수정] searchWorkspaces, createJoinRequest 함수 import 추가
 import {
-  WorkspaceResponse,
-  CreateWorkspaceRequest,
-  getWorkspaces,
+  getMyWorkspaces,
   createWorkspace,
+  searchWorkspaces,
+  createJoinRequest,
 } from '../api/user/userService';
 import { Search, Plus, X, AlertCircle, Settings, LogOut } from 'lucide-react';
 import WorkspaceManagementModal from './modals/WorkspaceManagementModal';
-
-// 2. Props 인터페이스 제거 (더 이상 App.tsx에서 props를 받지 않음)
-/*
-interface SelectWorkspacePageProps {
-  userId: string;
-  accessToken: string;
-  onWorkspaceSelected: (workspaceId: string) => void;
-}
-*/
+import { CreateWorkspaceRequest, WorkspaceResponse, JoinRequestResponse } from '../types/user';
 
 type WorkspacePageStep = 'list' | 'create-form' | 'add-members' | 'loading';
 
@@ -29,15 +20,10 @@ interface PendingMember {
   email: string;
 }
 
-// 3. props 제거
 const SelectWorkspacePage: React.FC = () => {
-  const navigate = useNavigate(); // 4. navigate 훅 사용
+  const navigate = useNavigate();
   const { theme } = useTheme();
-  const { userEmail, logout } = useAuth();
-
-  // 5. localStorage에서 토큰 및 ID 직접 조회
-  const accessToken = localStorage.getItem('accessToken') || '';
-  const nickName = localStorage.getItem('nickName') || '';
+  const { userEmail, logout, nickName } = useAuth();
 
   // 페이지 상태
   const [step, setStep] = useState<WorkspacePageStep>('list');
@@ -46,9 +32,13 @@ const SelectWorkspacePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // 💡 [NEW] 검색 상태
+  const [searchedWorkspaces, setSearchedWorkspaces] = useState<WorkspaceResponse[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   // 폼 상태
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
-  const [newDescription, setNewDescription] = useState(''); // (Description)
+  const [newDescription, setNewDescription] = useState('');
 
   // 멤버 초대
   const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
@@ -60,50 +50,81 @@ const SelectWorkspacePage: React.FC = () => {
   // 워크스페이스 관리 모달
   const [managingWorkspace, setManagingWorkspace] = useState<WorkspaceResponse | null>(null);
 
-  // 1. 초기 워크스페이스 로드
+  // 1. 초기 워크스페이스 로드/새로고침 함수
+  const fetchWorkspaces = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedWorkspaces = await getMyWorkspaces();
+      setWorkspaces(fetchedWorkspaces);
+      return fetchedWorkspaces;
+    } catch (e: any) {
+      const err = e as Error;
+      console.error('워크스페이스 목록 조회 실패:', err);
+      // 인터셉터가 401 처리를 담당하므로, 이 에러는 주로 서버/네트워크 오류입니다.
+      setError(`워크스페이스 목록 조회 실패: ${err.message}`);
+      setWorkspaces([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchWorkspaces = async () => {
-      if (!accessToken) {
-        // 토큰이 없으면 로그인 페이지로 (방어 코드)
-        navigate('/');
+    fetchWorkspaces();
+  }, [navigate]);
+
+  // 💡 [NEW] 검색 API 실행 함수
+  const executeSearch = useCallback(
+    async (query: string) => {
+      if (!query.trim()) {
+        setSearchedWorkspaces([]);
         return;
       }
 
-      setIsLoading(true);
+      setIsSearching(true);
       setError(null);
       try {
-        const fetchedWorkspaces = await getWorkspaces(accessToken);
-        setWorkspaces(fetchedWorkspaces);
-      } catch (e) {
-        const err = e as Error;
-        setError(`워크스페이스 목록 조회 실패: ${err.message}`);
-        setWorkspaces([]);
+        const results = await searchWorkspaces(query);
+
+        // 내 워크스페이스에 이미 속한 항목 제외
+        const myIds = new Set(workspaces?.map((w) => w.workspaceId) || []);
+        const filteredResults = results.filter((r) => !myIds.has(r.workspaceId));
+
+        setSearchedWorkspaces(filteredResults);
+      } catch (e: any) {
+        console.error('❌ 워크스페이스 검색 실패:', e);
+        setSearchedWorkspaces([]);
+        setError('검색 중 오류가 발생했습니다.');
       } finally {
-        setIsLoading(false);
+        setIsSearching(false);
       }
-    };
+    },
+    [workspaces],
+  );
 
-    fetchWorkspaces();
-  }, [accessToken, navigate]); // 의존성에 navigate 추가
+  // 💡 [NEW] Enter 또는 버튼 클릭 시 검색 실행 핸들러
+  const handleSearchSubmit = () => {
+    executeSearch(searchQuery);
+  };
 
-  // 2. 검색 필터
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit();
+    }
+  };
+
+  // 2. 나의 워크스페이스 필터링 (검색 쿼리가 없는 경우만 해당)
   const availableWorkspaces = useMemo(() => {
-    if (!workspaces) return [];
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return workspaces;
-    return workspaces.filter(
-      (ws) =>
-        ws.workspaceName.toLowerCase().includes(query) ||
-        ws.workspaceDescription.toLowerCase().includes(query),
-    );
+    // 검색 중일 때는 내 워크스페이스 목록을 그대로 보여줍니다.
+    if (!workspaces || searchQuery.trim()) return workspaces || [];
+    return workspaces;
   }, [searchQuery, workspaces]);
-
-  // 3. 이메일 유효성 검사 (동일)
+  // 4. 이메일 유효성 검사 (동일)
   const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  // 4. 멤버 추가 (동일)
+  // 5. 멤버 추가/제거 (동일)
   const handleAddMember = () => {
     setMemberEmailError(null);
     if (!memberEmail.trim()) {
@@ -122,12 +143,11 @@ const SelectWorkspacePage: React.FC = () => {
     setMemberEmail('');
   };
 
-  // 5. 멤버 제거 (동일)
   const handleRemoveMember = (id: string) => {
     setPendingMembers(pendingMembers.filter((m) => m.id !== id));
   };
 
-  // 6. 워크스페이스 생성 (onWorkspaceSelected -> navigate)
+  // 6. 워크스페이스 생성 (동일)
   const handleCreateWorkspaceWithMembers = async () => {
     if (!newWorkspaceName.trim()) {
       setError('워크스페이스 이름을 입력해주세요');
@@ -140,50 +160,77 @@ const SelectWorkspacePage: React.FC = () => {
         workspaceName: newWorkspaceName,
         workspaceDescription: newDescription || '-',
       };
-      const newWorkspace = await createWorkspace(createData, accessToken);
+
+      const newWorkspace = await createWorkspace(createData);
+
+      if (!newWorkspace || !newWorkspace.workspaceId) {
+        throw new Error(
+          '워크스페이스가 생성되었지만, 응답에서 유효한 Workspace ID를 찾을 수 없습니다. (응답 구조 오류)',
+        );
+      }
+
       const newWorkspaceId = newWorkspace.workspaceId;
       setCreatedWorkspaceId(newWorkspaceId);
-
-      for (const member of pendingMembers) {
-        console.log(`멤버 초대 예정: ${member.email}`);
-      }
 
       alert(
         `워크스페이스 '${newWorkspaceName}' 생성 완료! ${pendingMembers.length}명의 멤버 초대 예정입니다.`,
       );
 
       resetCreateForm();
-      // 6. [수정] props 콜백 대신 navigate로 페이지 이동
       navigate(`/workspace/${newWorkspaceId}`);
-    } catch (e) {
+    } catch (e: any) {
       const err = e as Error;
       setError(`워크스페이스 생성 실패: ${err.message}`);
       setIsLoading(false);
     }
   };
 
-  // 7. 기존 워크스페이스 선택 (onWorkspaceSelected -> navigate)
+  // 7. 기존 워크스페이스 선택 (동일)
   const handleSelectExistingWorkspace = async (workspace: WorkspaceResponse) => {
     setIsLoading(true);
     setError(null);
     try {
+      // ⚠️ 여기에 API 호출이 필요할 수 있습니다 (예: 기본 워크스페이스 설정)
+      // 현재 명세에는 POST /api/workspaces/default가 있으나, 여기서는 단순 navigate만 수행합니다.
       alert(`워크스페이스 '${workspace.workspaceName}'에 참여 완료!`);
-
-      // 6. [수정] props 콜백 대신 navigate로 페이지 이동
       navigate(`/workspace/${workspace.workspaceId}`);
-    } catch (e) {
+    } catch (e: any) {
       const err = e as Error;
       setError(`워크스페이스 참여 실패: ${err.message}`);
       setIsLoading(false);
     }
   };
 
-  // 워크스페이스 관리 모달 열기
+  // 8. [NEW] 검색된 워크스페이스 가입 요청
+  const handleJoinRequest = async (workspace: WorkspaceResponse) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // 💡 API 호출: POST /api/workspaces/join-requests
+      const joinRequest: JoinRequestResponse = await createJoinRequest(workspace.workspaceId);
+
+      setSearchQuery(''); // 검색 결과 초기화
+      setSearchedWorkspaces([]);
+
+      // 내 워크스페이스 목록 갱신 (가입 요청 상태가 반영된 목록을 가져옵니다)
+      await fetchWorkspaces();
+
+      alert(`'${workspace.workspaceName}'에 가입 요청을 보냈습니다. (${joinRequest.status})`);
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.error?.message || e.message;
+      console.error('❌ 가입 요청 실패:', errorMsg);
+      setError(`가입 요청 실패: ${errorMsg}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 9. 워크스페이스 관리 모달 열기 (동일)
   const handleManageWorkspace = (workspace: WorkspaceResponse) => {
     setManagingWorkspace(workspace);
   };
 
-  // 8. 폼 초기화 (동일)
+  // 10. 폼 초기화 (동일)
   const resetCreateForm = () => {
     setNewWorkspaceName('');
     setNewDescription('');
@@ -209,7 +256,7 @@ const SelectWorkspacePage: React.FC = () => {
     );
   }
 
-  // --- 메인 렌더링 (동일) ---
+  // --- 메인 렌더링 ---
   return (
     <div className={`min-h-screen ${theme.colors.background} flex items-center justify-center p-4`}>
       <div
@@ -252,25 +299,72 @@ const SelectWorkspacePage: React.FC = () => {
                 {error}
               </div>
             )}
-
-            {/* 검색 */}
+            {/* 검색 입력 필드 */}
             <div className="relative mb-4">
               <input
                 type="text"
-                placeholder="워크스페이스 이름 또는 설명으로 검색"
+                placeholder="워크스페이스 이름 검색"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full px-4 pl-10 py-3 ${theme.colors.secondary} ${theme.font.size.sm} rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition`}
+                onKeyDown={handleSearchKeyDown} // 💡 [추가] 엔터 키 이벤트 핸들러
+                className={`w-full px-4 py-3 ${theme.colors.secondary} ${theme.font.size.sm} rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition`}
               />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              {/* 검색 버튼 (클릭 시 실행) */}
+              <button
+                onClick={handleSearchSubmit}
+                className="absolute right-0 top-0 h-full px-4 text-gray-500 hover:text-blue-500 transition"
+                title="검색 실행"
+                disabled={isSearching}
+              >
+                <Search className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* 워크스페이스 목록 */}
+            {/* 💡 [NEW] 검색된 워크스페이스 목록 (가입 요청 목록) */}
+            {(searchedWorkspaces.length > 0 || isSearching) && (
+              <div className={`mb-4 border-2 ${theme.colors.border} rounded-lg shadow-md`}>
+                <h3 className="p-3 bg-gray-100 font-semibold text-sm rounded-t-lg">
+                  {isSearching ? '검색 중...' : `검색 결과 (${searchedWorkspaces.length}개)`}
+                </h3>
+                <div className={`max-h-40 overflow-y-auto`}>
+                  {searchedWorkspaces.map((ws) => (
+                    <div
+                      key={ws.workspaceId}
+                      // 클릭 시 가입 요청 핸들러 호출
+                      onClick={() => !isLoading && handleJoinRequest(ws)}
+                      className={`w-full text-left p-3 hover:bg-green-50 border-b border-gray-100 transition flex justify-between items-center cursor-pointer`}
+                    >
+                      <div>
+                        <span className="font-semibold text-gray-800">{ws.workspaceName}</span>
+                        <p className={`text-gray-500 ${theme.font.size.xs}`}>
+                          {ws.workspaceDescription}
+                        </p>
+                      </div>
+                      <span className="text-xs text-green-600 border border-green-300 px-2 py-1 rounded">
+                        가입 요청
+                      </span>
+                    </div>
+                  ))}
+                  {searchedWorkspaces.length === 0 && !isSearching && searchQuery.trim() && (
+                    <p className="p-3 text-center text-sm text-gray-500">
+                      검색된 워크스페이스가 없습니다.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 💡 [OLD] 나의 워크스페이스 목록 */}
+            <div className="mb-2">
+              <h3 className="font-semibold text-sm text-gray-700 mb-2">
+                나의 워크스페이스 ({workspaces?.length || 0}개)
+              </h3>
+            </div>
             <div
               className={`max-h-60 overflow-y-auto border-2 ${theme.colors.border} rounded-lg mb-4`}
             >
-              {availableWorkspaces.length > 0 ? (
-                availableWorkspaces.map((ws) => (
+              {workspaces && workspaces.length > 0 ? (
+                workspaces.map((ws) => (
                   <div
                     key={ws.workspaceId}
                     onClick={() => !isLoading && handleSelectExistingWorkspace(ws)}
@@ -289,7 +383,6 @@ const SelectWorkspacePage: React.FC = () => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {/* {ws.ownerId === userId && ( */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -300,7 +393,6 @@ const SelectWorkspacePage: React.FC = () => {
                       >
                         <Settings className="w-4 h-4 text-gray-600" />
                       </button>
-                      {/* )} */}
                       <span
                         className={`${theme.colors.info} ${theme.font.size.xs} px-2 py-1 border border-blue-200 rounded`}
                       >
@@ -311,7 +403,7 @@ const SelectWorkspacePage: React.FC = () => {
                 ))
               ) : (
                 <p className={`p-4 text-center ${theme.colors.subText} ${theme.font.size.sm}`}>
-                  {searchQuery.trim() ? '검색 결과가 없습니다.' : '소속된 워크스페이스가 없습니다.'}
+                  소속된 워크스페이스가 없습니다.
                 </p>
               )}
             </div>
@@ -327,7 +419,7 @@ const SelectWorkspacePage: React.FC = () => {
           </>
         )}
 
-        {/* Step 2: 워크스페이스 정보 입력 */}
+        {/* Step 2: 워크스페이스 정보 입력 (동일) */}
         {step === 'create-form' && (
           <>
             <h2

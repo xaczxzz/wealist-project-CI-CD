@@ -2,26 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+// 💡 [수정] 정적 Import로 변경하고, 토큰 인수가 제거된 함수를 사용합니다.
+import { createProject, updateProject } from '../../api/board/boardService';
+// 💡 [수정] types/board.ts에서 ProjectResponse를 가져옵니다.
+import { ProjectResponse } from '../../types/board';
 
 /**
  * ProjectModal - 프로젝트 생성 및 편집을 위한 통합 모달
  * - project prop이 있으면 편집 모드, 없으면 생성 모드
  */
-interface ProjectData {
-  project_id: string;
-  name: string;
-  description?: string;
-  workspace_id: string;
-  ownerId: string;
-  ownerName: string;
-  ownerEmail: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
+// 💡 [수정] ProjectData 대신 ProjectResponse를 사용합니다.
 interface ProjectModalProps {
   workspaceId: string;
-  project?: ProjectData; // 편집 모드일 때만 전달
+  project?: ProjectResponse; // 편집 모드일 때만 전달
   onClose: () => void;
   onProjectSaved: () => void; // 생성 또는 수정 후 호출
 }
@@ -66,43 +59,39 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem('accessToken') || '';
+      // 💡 [수정] localStorage.getItem('accessToken') 호출 및 accessToken 변수 제거
 
-      if (isEditMode) {
+      if (isEditMode && project) {
         // 편집 모드
-        const { updateProject } = await import('../../api/board/boardService');
-        await updateProject(
-          project.project_id,
-          {
-            name: name.trim(),
-            description: description.trim() || undefined,
-          },
-          accessToken,
-        );
+        // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+        await updateProject(project.projectId, {
+          name: name.trim(),
+          description: description.trim() || undefined,
+        });
         console.log('✅ 프로젝트 수정 성공:', name);
       } else {
-        console.log(nickName);
         // 생성 모드
-        const { createProject } = await import('../../api/board/boardService');
-        await createProject(
-          {
-            workspace_id: workspaceId,
-            name: name.trim(),
-            description: description.trim() || undefined,
-          },
-          accessToken,
-        );
+        console.log(nickName);
+        // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+        await createProject({
+          workspaceId: workspaceId,
+          name: name.trim(),
+          description: description.trim() || undefined,
+        });
         alert(name + '이 생성되었습니다!');
         console.log('✅ 프로젝트 생성 성공:', name);
       }
 
       onProjectSaved();
       onClose();
-    } catch (err) {
-      const error = err as Error;
-      console.error(isEditMode ? '❌ 프로젝트 수정 실패:' : '❌ 프로젝트 생성 실패:', error);
+    } catch (err: any) {
+      // AxiosError가 처리되므로 err.response.data.message 등을 사용할 수 있지만,
+      // 여기서는 간결하게 err.message를 사용합니다.
+      const errorMsg = err.response?.data?.error?.message || err.message;
+
+      console.error(isEditMode ? '❌ 프로젝트 수정 실패:' : '❌ 프로젝트 생성 실패:', errorMsg);
       setError(
-        error.message ||
+        errorMsg ||
           (isEditMode ? '프로젝트 수정에 실패했습니다.' : '프로젝트 생성에 실패했습니다.'),
       );
     } finally {
@@ -137,7 +126,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-gray-500 mb-1">프로젝트 소유자</div>
             <div className="text-sm font-medium text-gray-700">
-              {project.ownerId} ({project.ownerEmail})
+              {project.ownerName} ({project.ownerEmail})
             </div>
           </div>
         )}

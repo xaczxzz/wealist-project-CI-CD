@@ -15,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -25,7 +26,6 @@ import java.util.UUID;
 public class UserProfileController {
 
     private final UserProfileService userProfileService;
-
     private UUID extractUserId(Principal principal) {
         if (principal instanceof Authentication authentication) {
             return UUID.fromString(authentication.getName());
@@ -51,6 +51,23 @@ public class UserProfileController {
         UserProfileResponse response = userProfileService.getProfile(userId);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/workspace/{workspaceId}")
+    @Operation(summary = "내 조직별 프로필 조회", description = "내 조직별 프로필을 조회합니다.")
+    public ResponseEntity<UserProfileResponse> getMyWorkspaceIdProfile(@PathVariable UUID workspaceId ,Principal principal) {
+        UUID userId = extractUserId(principal);
+        UserProfileResponse response = userProfileService.workSpaceIdGetProfile(workspaceId,userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/all/me")
+    @Operation(summary = "내 모든 프로필 조회", description = "내 모든 프로필을 조회합니다.")
+    public ResponseEntity<List<UserProfileResponse>> getAllMyProfile(Principal principal) {
+        UUID userId = extractUserId(principal);
+        List<UserProfileResponse> response = userProfileService.getAllProfiles(userId);
+        return ResponseEntity.ok(response);
+    }
+
 
     @PutMapping("/me")
     @Operation(summary = "내 프로필 정보 통합 업데이트", description = "인증된 사용자의 이름 또는 프로필 이미지 URL을 업데이트합니다.")

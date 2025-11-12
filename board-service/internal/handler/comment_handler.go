@@ -20,7 +20,19 @@ func NewCommentHandler(cs service.CommentService) *CommentHandler {
 	return &CommentHandler{commentService: cs}
 }
 
-// CreateComment handles the creation of a new comment.
+// CreateComment godoc
+// @Summary      Create comment
+// @Description  Create a new comment on a board
+// @Tags         comments
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.CreateCommentRequest true "Comment details"
+// @Success      201 {object} dto.SuccessResponse{data=dto.CommentResponse}
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      403 {object} dto.ErrorResponse
+// @Failure      404 {object} dto.ErrorResponse
+// @Router       /api/comments [post]
+// @Security     BearerAuth
 func (h *CommentHandler) CreateComment(c *gin.Context) {
 	userIDStr := c.GetString("user_id")
 	userID, err := uuid.Parse(userIDStr)
@@ -48,7 +60,19 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 	dto.SuccessWithStatus(c, http.StatusCreated, resp)
 }
 
-// GetCommentsByBoardID handles fetching all comments for a board.
+// GetCommentsByBoardID godoc
+// @Summary      Get comments by board
+// @Description  Get all comments for a specific board (project member only)
+// @Tags         comments
+// @Accept       json
+// @Produce      json
+// @Param        boardId query string true "Board ID"
+// @Success      200 {object} dto.SuccessResponse{data=[]dto.CommentResponse}
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      403 {object} dto.ErrorResponse
+// @Failure      404 {object} dto.ErrorResponse
+// @Router       /api/comments [get]
+// @Security     BearerAuth
 func (h *CommentHandler) GetCommentsByBoardID(c *gin.Context) {
 	userIDStr := c.GetString("user_id")
 	userID, err := uuid.Parse(userIDStr)
@@ -82,7 +106,20 @@ func (h *CommentHandler) GetCommentsByBoardID(c *gin.Context) {
 	dto.Success(c, resp)
 }
 
-// UpdateComment handles the update of an existing comment.
+// UpdateComment godoc
+// @Summary      Update comment
+// @Description  Update an existing comment (author only)
+// @Tags         comments
+// @Accept       json
+// @Produce      json
+// @Param        commentId path string true "Comment ID"
+// @Param        request body dto.UpdateCommentRequest true "Comment updates"
+// @Success      200 {object} dto.SuccessResponse{data=dto.CommentResponse}
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      403 {object} dto.ErrorResponse
+// @Failure      404 {object} dto.ErrorResponse
+// @Router       /api/comments/{commentId} [put]
+// @Security     BearerAuth
 func (h *CommentHandler) UpdateComment(c *gin.Context) {
 	userIDStr := c.GetString("user_id")
 	userID, err := uuid.Parse(userIDStr)
@@ -91,7 +128,7 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 		return
 	}
 
-	commentID, err := uuid.Parse(c.Param("id"))
+	commentID, err := uuid.Parse(c.Param("commentId"))
 	if err != nil {
 		dto.Error(c, apperrors.New(apperrors.ErrCodeBadRequest, "Invalid comment ID format", http.StatusBadRequest))
 		return
@@ -116,7 +153,19 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 	dto.Success(c, resp)
 }
 
-// DeleteComment handles the deletion of a comment.
+// DeleteComment godoc
+// @Summary      Delete comment
+// @Description  Delete a comment (soft delete, author only)
+// @Tags         comments
+// @Accept       json
+// @Produce      json
+// @Param        commentId path string true "Comment ID"
+// @Success      204 "No Content"
+// @Failure      400 {object} dto.ErrorResponse
+// @Failure      403 {object} dto.ErrorResponse
+// @Failure      404 {object} dto.ErrorResponse
+// @Router       /api/comments/{commentId} [delete]
+// @Security     BearerAuth
 func (h *CommentHandler) DeleteComment(c *gin.Context) {
 	userIDStr := c.GetString("user_id")
 	userID, err := uuid.Parse(userIDStr)
@@ -125,7 +174,7 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 		return
 	}
 
-	commentID, err := uuid.Parse(c.Param("id"))
+	commentID, err := uuid.Parse(c.Param("commentId"))
 	if err != nil {
 		dto.Error(c, apperrors.New(apperrors.ErrCodeBadRequest, "Invalid comment ID format", http.StatusBadRequest))
 		return
