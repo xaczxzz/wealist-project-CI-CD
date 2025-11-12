@@ -18,8 +18,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onSearchChange,
   onViewChange,
   onFilterChange,
-  onManageClick,
-  currentView,
   onLayoutChange,
   onShowCompletedChange,
   currentLayout = 'board',

@@ -111,6 +111,32 @@ const refreshAccessToken = async (): Promise<string> => {
 };
 
 // ============================================================================
+// 요청 인터셉터 설정 함수
+// ============================================================================
+
+/**
+ * localStorage에서 accessToken을 자동으로 가져와 Authorization 헤더에 추가합니다.
+ */
+const setupRequestInterceptor = (client: AxiosInstance) => {
+  client.interceptors.request.use(
+    (config) => {
+      // localStorage에서 accessToken 가져오기
+      const accessToken = localStorage.getItem('accessToken');
+
+      // Authorization 헤더가 이미 설정되어 있지 않고, accessToken이 있으면 추가
+      if (accessToken && !config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    },
+  );
+};
+
+// ============================================================================
 // 통합 응답 인터셉터 설정 함수
 // ============================================================================
 
@@ -203,7 +229,12 @@ const setupUnifiedResponseInterceptor = (client: AxiosInstance) => {
   );
 };
 
-// 💡 두 클라이언트 인스턴스에 통합 인터셉터 적용
+// 💡 두 클라이언트 인스턴스에 인터셉터 적용
+// 1. Request Interceptor: 자동으로 accessToken을 헤더에 추가
+setupRequestInterceptor(userRepoClient);
+setupRequestInterceptor(boardServiceClient);
+
+// 2. Response Interceptor: 토큰 갱신 및 네트워크 오류 재시도
 setupUnifiedResponseInterceptor(userRepoClient);
 setupUnifiedResponseInterceptor(boardServiceClient);
 

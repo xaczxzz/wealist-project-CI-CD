@@ -1,22 +1,12 @@
-// src/components/SelectWorkspacePage.tsx (라우터 적용 수정본)
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom'; // 1. useNavigate 임포트
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { getWorkspaces, createWorkspace } from '../api/user/userService';
+// 💡 API 호출 시 accessToken 인수가 필요 없도록 변경됨
+import { getMyWorkspaces, createWorkspace } from '../api/user/userService';
 import { Search, Plus, X, AlertCircle, Settings, LogOut } from 'lucide-react';
 import WorkspaceManagementModal from './modals/WorkspaceManagementModal';
 import { CreateWorkspaceRequest, WorkspaceResponse } from '../types/user';
-
-// 2. Props 인터페이스 제거 (더 이상 App.tsx에서 props를 받지 않음)
-/*
-interface SelectWorkspacePageProps {
-  userId: string;
-  accessToken: string;
-  onWorkspaceSelected: (workspaceId: string) => void;
-}
-*/
 
 type WorkspacePageStep = 'list' | 'create-form' | 'add-members' | 'loading';
 
@@ -25,15 +15,10 @@ interface PendingMember {
   email: string;
 }
 
-// 3. props 제거
 const SelectWorkspacePage: React.FC = () => {
-  const navigate = useNavigate(); // 4. navigate 훅 사용
+  const navigate = useNavigate();
   const { theme } = useTheme();
-  const { userEmail, logout } = useAuth();
-
-  // 5. localStorage에서 토큰 및 ID 직접 조회
-  const accessToken = localStorage.getItem('accessToken') || '';
-  const nickName = localStorage.getItem('nickName') || '';
+  const { userEmail, logout, nickName } = useAuth(); // useAuth의 userEmail, nickName은 JWT Payload 등에서 가져온다고 가정
 
   // 페이지 상태
   const [step, setStep] = useState<WorkspacePageStep>('list');
@@ -44,7 +29,7 @@ const SelectWorkspacePage: React.FC = () => {
 
   // 폼 상태
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
-  const [newDescription, setNewDescription] = useState(''); // (Description)
+  const [newDescription, setNewDescription] = useState('');
 
   // 멤버 초대
   const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
@@ -58,20 +43,24 @@ const SelectWorkspacePage: React.FC = () => {
 
   // 1. 초기 워크스페이스 로드
   useEffect(() => {
+    // 💡 accessToken 변수 선언 및 localStorage.getItem 호출 제거
     const fetchWorkspaces = async () => {
-      if (!accessToken) {
-        // 토큰이 없으면 로그인 페이지로 (방어 코드)
-        navigate('/');
-        return;
-      }
+      // 💡 토큰이 없거나 만료된 경우, 인터셉터가 자동으로 로그아웃/리다이렉트 처리해주므로,
+      //    여기서는 API 호출만 시도합니다.
+      //    (단, useAuth 등에서 userEmail, nickName이 유효한지 확인하는 로직은 별도로 필요할 수 있습니다.)
 
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedWorkspaces = await getWorkspaces(accessToken);
+        const fetchedWorkspaces = await getMyWorkspaces();
         setWorkspaces(fetchedWorkspaces);
       } catch (e) {
+        // 💡 401 에러는 인터셉터가 처리하고, 그 외의 에러(4xx, 5xx)는 여기서 처리
         const err = e as Error;
+        console.error('워크스페이스 목록 조회 실패:', err);
+        // 토큰 갱신 실패로 인한 로그아웃 시 에러가 여기서 잡힐 수도 있지만,
+        // 인터셉터에서 window.location.href = '/' 처리했으므로,
+        // 실제로는 리다이렉트되어 페이지가 바뀌게 됩니다.
         setError(`워크스페이스 목록 조회 실패: ${err.message}`);
         setWorkspaces([]);
       } finally {
@@ -80,9 +69,9 @@ const SelectWorkspacePage: React.FC = () => {
     };
 
     fetchWorkspaces();
-  }, [accessToken, navigate]); // 의존성에 navigate 추가
+  }, [navigate]); // 💡 의존성 배열에서 accessToken 제거
 
-  // 2. 검색 필터
+  // 2. 검색 필터 (동일)
   const availableWorkspaces = useMemo(() => {
     if (!workspaces) return [];
     const query = searchQuery.toLowerCase().trim();
@@ -123,7 +112,7 @@ const SelectWorkspacePage: React.FC = () => {
     setPendingMembers(pendingMembers.filter((m) => m.id !== id));
   };
 
-  // 6. 워크스페이스 생성 (onWorkspaceSelected -> navigate)
+  // 6. 워크스페이스 생성 (토큰 인자 제거)
   const handleCreateWorkspaceWithMembers = async () => {
     if (!newWorkspaceName.trim()) {
       setError('워크스페이스 이름을 입력해주세요');
@@ -136,10 +125,21 @@ const SelectWorkspacePage: React.FC = () => {
         workspaceName: newWorkspaceName,
         workspaceDescription: newDescription || '-',
       };
-      const newWorkspace = await createWorkspace(createData, accessToken);
+
+      // 💡 [핵심] API 호출
+      const newWorkspace = await createWorkspace(createData);
+
+      // 💡 [수정] 응답 검증 강화: newWorkspace가 유효한지, 그리고 workspaceId 속성이 있는지 확인
+      if (!newWorkspace || !newWorkspace.workspaceId) {
+        // 200 OK가 떨어졌지만 데이터가 비었거나 구조가 잘못되었을 경우
+        throw new Error(
+          '워크스페이스가 생성되었지만, 응답에서 유효한 Workspace ID를 찾을 수 없습니다. (응답 구조 오류)',
+        );
+      }
+
       const newWorkspaceId = newWorkspace.workspaceId;
       setCreatedWorkspaceId(newWorkspaceId);
-
+      
       for (const member of pendingMembers) {
         console.log(`멤버 초대 예정: ${member.email}`);
       }
@@ -149,7 +149,6 @@ const SelectWorkspacePage: React.FC = () => {
       );
 
       resetCreateForm();
-      // 6. [수정] props 콜백 대신 navigate로 페이지 이동
       navigate(`/workspace/${newWorkspaceId}`);
     } catch (e) {
       const err = e as Error;
@@ -158,23 +157,23 @@ const SelectWorkspacePage: React.FC = () => {
     }
   };
 
-  // 7. 기존 워크스페이스 선택 (onWorkspaceSelected -> navigate)
+  // 7. 기존 워크스페이스 선택 (동일)
   const handleSelectExistingWorkspace = async (workspace: WorkspaceResponse) => {
     setIsLoading(true);
     setError(null);
     try {
+      // 이 부분은 API 호출이 없으므로 그대로 둡니다.
       alert(`워크스페이스 '${workspace.workspaceName}'에 참여 완료!`);
-
-      // 6. [수정] props 콜백 대신 navigate로 페이지 이동
       navigate(`/workspace/${workspace.workspaceId}`);
     } catch (e) {
+      // 현재 로직상 API 호출이 없으나, 혹시 모를 에러 처리용
       const err = e as Error;
       setError(`워크스페이스 참여 실패: ${err.message}`);
       setIsLoading(false);
     }
   };
 
-  // 워크스페이스 관리 모달 열기
+  // 워크스페이스 관리 모달 열기 (동일)
   const handleManageWorkspace = (workspace: WorkspaceResponse) => {
     setManagingWorkspace(workspace);
   };
@@ -218,6 +217,7 @@ const SelectWorkspacePage: React.FC = () => {
               {userEmail ? `반갑습니다, ${nickName}님!` : '환영합니다!'}
             </span>
           </div>
+          {/* 로그아웃은 useAuth의 logout 함수를 사용한다고 가정 (logout 내부에서 performLogout 호출) */}
           <button
             onClick={logout}
             className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
@@ -323,7 +323,7 @@ const SelectWorkspacePage: React.FC = () => {
           </>
         )}
 
-        {/* Step 2: 워크스페이스 정보 입력 */}
+        {/* Step 2: 워크스페이스 정보 입력 (동일) */}
         {step === 'create-form' && (
           <>
             <h2
