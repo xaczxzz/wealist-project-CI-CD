@@ -13,10 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Configuration
@@ -27,6 +24,10 @@ public class TestDataInitializer {
     private final UserProfileRepository userProfileRepository;
     private final WorkspaceRepository workspaceRepository;
     private final Environment environment;
+
+    private static final int WORKSPACE_COUNT = 10;
+    private static final int USER_COUNT = 50;
+    private static final int MIN_USERS_PER_WORKSPACE = 5;
 
     @Bean
     public CommandLineRunner initializeTestData() {
@@ -40,79 +41,122 @@ public class TestDataInitializer {
                 return;
             }
 
-            if (userRepository.count() > 0) {
-                log.info("✅ Database already has users. Skipping initialization.");
+            log.info("🚀 Starting test data initialization...");
+
+            if (userRepository.count() > 0 && workspaceRepository.count() > 0) {
+                log.info("✅ Database already initialized. Skipping test data creation.");
                 return;
             }
 
-            log.info("🚀 Starting test data initialization...");
-
-            // 1. Create a default workspace
+            // 1️⃣ 기본 소유자 유저 생성
             User owner = createInitialUser();
-            Workspace workspace = createDefaultWorkspace(owner);
-            log.info("✅ Created default workspace: {}", workspace.getWorkspaceName());
 
-            // 2. Create test users
-            List<User> users = createTestUsers(owner);
-            users.forEach(user -> {
-                createUserProfile(user, workspace);
-                log.info("✅ Created user: {} ({})", user.getEmail(), user.getUserId());
-            });
+            // 2️⃣ 워크스페이스 10개 생성
+            List<Workspace> workspaces = createWorkspaces(owner, WORKSPACE_COUNT);
 
-            log.info("🎉 Test data initialization completed! Created {} users.", users.size());
+            // 3️⃣ 유저 50명 생성
+            List<User> users = createTestUsers(owner, USER_COUNT);
+
+            // 4️⃣ 각 워크스페이스에 최소 5명씩 배정
+            assignUsersToWorkspaces(users, workspaces, MIN_USERS_PER_WORKSPACE);
+
+            log.info("🎉 Test data initialization completed! Created {} users and {} workspaces.",
+                    users.size(), workspaces.size());
         };
     }
 
+    // ----------------------------------------------------------------------------------------
+    // User 관련
+    // ----------------------------------------------------------------------------------------
     private User createInitialUser() {
-        if (userRepository.findByEmail("owner@wealist.com").isPresent()) {
-            return userRepository.findByEmail("owner@wealist.com").get();
-        }
-        User owner = User.builder()
-                .email("owner@wealist.com")
-                .provider("google")
-                .googleId("google-id-owner")
-                .isActive(true)
-                .build();
-        return userRepository.save(owner);
+        return userRepository.findByEmail("owner@wealist.com")
+                .orElseGet(() -> userRepository.save(
+                        User.builder()
+                                .email("owner@wealist.com")
+                                .provider("google")
+                                .googleId("google-id-owner")
+                                .isActive(true)
+                                .build()
+                ));
     }
 
-    private Workspace createDefaultWorkspace(User owner) {
-        if (workspaceRepository.count() > 0) {
-            return workspaceRepository.findAll().get(0);
-        }
-        Workspace workspace = Workspace.builder()
-                .ownerId(owner.getUserId())
-                .workspaceName("Default Workspace")
-                .workspaceDescription("This is a default workspace for testing.")
-                .isPublic(true)
-                .needApproved(false)
-                .build();
-        return workspaceRepository.save(workspace);
-    }
-
-    private List<User> createTestUsers(User owner) {
+    private List<User> createTestUsers(User owner, int count) {
         List<User> users = new ArrayList<>();
         users.add(owner);
 
-        List<DummyUserData> dummyUsers = createDummyUserData();
+        for (int i = 1; i <= count; i++) {
+            String email = "testuser" + i + "@wealist.com";
+            if (userRepository.existsByEmailAndIsActiveTrue(email)) continue;
 
-        for (DummyUserData data : dummyUsers) {
-            if (userRepository.existsByEmailAndIsActiveTrue(data.email)) {
-                log.debug("⏭️  User already exists: {}", data.email);
-                continue;
-            }
             User user = User.builder()
-                    .email(data.email)
+                    .email(email)
                     .provider("google")
-                    .googleId(data.googleId)
+                    .googleId("google-id-" + i)
                     .isActive(true)
                     .build();
+
             users.add(userRepository.save(user));
         }
         return users;
     }
 
-    private void createUserProfile(User user, Workspace workspace) {
+    // ----------------------------------------------------------------------------------------
+    // Workspace 관련
+    // ----------------------------------------------------------------------------------------
+    private List<Workspace> createWorkspaces(User owner, int count) {
+        List<Workspace> workspaces = new ArrayList<>();
+        for (int i = 1; i <= count; i++) {
+            Workspace workspace = Workspace.builder()
+                    .ownerId(owner.getUserId())
+                    .workspaceName("Test Workspace " + i)
+                    .workspaceDescription("Auto-generated workspace number " + i)
+                    .isPublic(i % 2 == 0)
+                    .needApproved(i % 3 != 0)
+                    .build();
+
+            workspaces.add(workspaceRepository.save(workspace));
+        }
+        return workspaces;
+    }
+
+    // ----------------------------------------------------------------------------------------
+    // UserProfile 생성 & 워크스페이스 배정
+    // ----------------------------------------------------------------------------------------
+    private void assignUsersToWorkspaces(List<User> users, List<Workspace> workspaces, int minUsersPerWorkspace) {
+        Random random = new Random();
+        int totalUsers = users.size();
+
+        // 1️⃣ 워크스페이스별 최소 사용자 배정
+        for (Workspace workspace : workspaces) {
+            Set<Integer> assignedIndices = new HashSet<>();
+            while (assignedIndices.size() < minUsersPerWorkspace) {
+                int idx = random.nextInt(totalUsers);
+                if (assignedIndices.contains(idx)) continue;
+                assignedIndices.add(idx);
+
+                User user = users.get(idx);
+                createProfileIfNotExists(user, workspace);
+            }
+        }
+
+        // 2️⃣ 나머지 유저들을 랜덤 워크스페이스에 배정
+        for (User user : users) {
+            // 이미 배정된 워크스페이스 수는 1~3개로 제한
+            int profilesCount = userProfileRepository.countByUserId(user.getUserId());
+            int remainingProfiles = random.nextInt(3 - profilesCount + 1);
+
+            for (int i = 0; i < remainingProfiles; i++) {
+                Workspace workspace = workspaces.get(random.nextInt(workspaces.size()));
+                createProfileIfNotExists(user, workspace);
+            }
+        }
+    }
+
+    private void createProfileIfNotExists(User user, Workspace workspace) {
+        boolean exists = userProfileRepository
+                .existsByUserIdAndWorkspaceId(user.getUserId(), workspace.getWorkspaceId());
+        if (exists) return;
+
         UserProfile profile = UserProfile.builder()
                 .userId(user.getUserId())
                 .workspaceId(workspace.getWorkspaceId())
@@ -120,26 +164,7 @@ public class TestDataInitializer {
                 .email(user.getEmail())
                 .profileImageUrl("https://i.pravatar.cc/150?u=" + user.getUserId())
                 .build();
+
         userProfileRepository.save(profile);
-    }
-
-    private List<DummyUserData> createDummyUserData() {
-        List<DummyUserData> users = new ArrayList<>();
-        users.add(new DummyUserData("chulsoo.kim@example.com", "google-id-001"));
-        users.add(new DummyUserData("younghee.lee@example.com", "google-id-002"));
-        users.add(new DummyUserData("minsu.park@example.com", "google-id-003"));
-        users.add(new DummyUserData("sujin.jung@example.com", "google-id-004"));
-        users.add(new DummyUserData("dongwook.choi@example.com", "google-id-005"));
-        return users;
-    }
-
-    private static class DummyUserData {
-        String email;
-        String googleId;
-
-        public DummyUserData(String email, String googleId) {
-            this.email = email;
-            this.googleId = googleId;
-        }
     }
 }
