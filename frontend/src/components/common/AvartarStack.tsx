@@ -1,17 +1,17 @@
 // =============================================================================
 // AvatarStack (변경 없음)
 
-import { WorkspaceMember } from '../../types/user';
+import { WorkspaceMemberResponse } from '../../types/user';
 
 // =============================================================================
 interface AvatarStackProps {
-  members: WorkspaceMember[];
+  members: WorkspaceMemberResponse[];
 }
 
 export const AvatarStack: React.FC<AvatarStackProps> = ({ members }) => {
   const displayCount = 3;
-  const displayMembers = members.slice(0, displayCount);
-  const remainingCount = members.length - displayCount;
+  const displayMembers = members?.slice(0, displayCount);
+  const remainingCount = members?.length - displayCount;
 
   const getColorByIndex = (index: number) => {
     const colors = [
@@ -26,17 +26,17 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({ members }) => {
 
   return (
     <div className="flex -space-x-1.5 p-1 pr-0 overflow-hidden">
-      {displayMembers.map((member, index) => (
+      {displayMembers?.map((member, index) => (
         <div
           key={member.userId}
           className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white overflow-hidden"
           style={{ zIndex: members.length - index }}
           title={`${member.userName} (${member.roleName})`}
         >
-          {member.profileImageUrl ? (
+          {member?.profileImageUrl ? (
             <img
-              src={member.profileImageUrl}
-              alt={member.userName}
+              src={member?.profileImageUrl}
+              alt={member?.userName}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -45,7 +45,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({ members }) => {
                 index,
               )}`}
             >
-              {member.userName[0]}
+              {member?.userName[0]}
             </div>
           )}
         </div>
@@ -74,7 +74,7 @@ export const AssigneeAvatarStack: React.FC<AssigneeAvatarStackProps> = ({ assign
         .map((name) => name.trim())
         .filter((name) => name.length > 0);
 
-  const initials = assigneeList.map((name) => name[0]).filter((i) => i);
+  const initials = assigneeList?.map((name) => name[0]).filter((i) => i);
   const displayCount = 3;
 
   if (initials.length === 0) {
@@ -89,7 +89,7 @@ export const AssigneeAvatarStack: React.FC<AssigneeAvatarStackProps> = ({ assign
 
   return (
     <div className="flex -space-x-1 p-1 pr-0 overflow-hidden">
-      {initials.slice(0, displayCount).map((initial, index) => (
+      {initials?.slice(0, displayCount)?.map((initial, index) => (
         <div
           key={index}
           className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white text-white ${
@@ -101,13 +101,13 @@ export const AssigneeAvatarStack: React.FC<AssigneeAvatarStackProps> = ({ assign
           {initial}
         </div>
       ))}
-      {initials.length > displayCount && (
+      {initials?.length > displayCount && (
         <div
           className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white bg-gray-400 text-white`}
           style={{ zIndex: 0 }}
-          title={`${initials.length - displayCount}명 외`}
+          title={`${initials?.length - displayCount}명 외`}
         >
-          +{initials.length - displayCount}
+          +{initials?.length - displayCount}
         </div>
       )}
     </div>

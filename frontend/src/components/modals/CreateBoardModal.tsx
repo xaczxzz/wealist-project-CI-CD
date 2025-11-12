@@ -9,12 +9,12 @@ import {
   CustomImportanceResponse,
   CreateBoardRequest,
   UpdateBoardRequest,
-} from '../../types/board'; // 💡 수정된 타입 경로
-
-// 💡 boardService에서 남은 함수만 import 합니다.
+} from '../../types/board';
+// 💡 boardService에서 남은 함수만 import 합니다. (토큰 인자 제거)
 import { createBoard, updateBoard } from '../../api/board/boardService';
 import { getWorkspaceMembers } from '../../api/user/userService';
-import { WorkspaceMember } from '../../types/user';
+// 💡 WorkspaceMemberResponse를 사용합니다.
+import { WorkspaceMemberResponse } from '../../types/user';
 
 // 💡 EditData 인터페이스를 API에 맞게 수정
 interface CreateBoardModalProps {
@@ -28,7 +28,7 @@ interface CreateBoardModalProps {
     stageId: string;
     roleIds: string[];
     importanceId: string;
-    assigneeIds: string[];
+    assigneeIds: string[]; // 단일 담당자여도 배열 형태로 전달받을 수 있음
     dueDate: string;
   } | null;
   workspaceId: string;
@@ -38,68 +38,77 @@ interface CreateBoardModalProps {
 
 // ⚠️ 임시 Mock Data: API 호출이 제거되었으므로, 컴포넌트 로직을 유지하기 위해 최소한의 Mock 데이터를 사용합니다.
 const MOCK_STAGES: CustomStageResponse[] = [
-  // 💡 label 대신 name을 사용하고 있었으므로, label로 키를 변경하고 description 추가
+  // 💡 UUID 형식으로 변경하여 백엔드 검증 통과
   {
-    stageId: 's-waiting',
+    stageId: '00000000-0000-0000-0000-000000000001',
     label: '대기',
     color: '#F59E0B',
     displayOrder: 1,
-    fieldId: 'stage',
+    fieldId: '00000000-0000-0000-0000-000000000010',
     description: '대기 단계',
+    isSystemDefault: true,
   },
   {
-    stageId: 's-progress',
+    stageId: '00000000-0000-0000-0000-000000000002',
     label: '진행중',
     color: '#3B82F6',
     displayOrder: 2,
-    fieldId: 'stage',
+    fieldId: '00000000-0000-0000-0000-000000000010',
     description: '진행 단계',
+    isSystemDefault: false,
   },
   {
-    stageId: 's-done',
+    stageId: '00000000-0000-0000-0000-000000000003',
     label: '완료',
     color: '#10B981',
     displayOrder: 3,
-    fieldId: 'stage',
+    fieldId: '00000000-0000-0000-0000-000000000010',
     description: '완료 단계',
+    isSystemDefault: false,
   },
 ];
 const MOCK_ROLES: CustomRoleResponse[] = [
-  // 💡 label 대신 name을 사용하고 있었으므로, label로 키를 변경하고 description 추가
+  // 💡 UUID 형식으로 변경하여 백엔드 검증 통과
   {
-    roleId: 'r-frontend',
+    roleId: '00000000-0000-0000-0000-000000000004',
     label: '프론트엔드',
     color: '#8B5CF6',
     displayOrder: 1,
-    fieldId: 'role',
+    fieldId: '00000000-0000-0000-0000-000000000011',
     description: '프론트 역할',
+    isSystemDefault: true,
   },
   {
-    roleId: 'r-backend',
+    roleId: '00000000-0000-0000-0000-000000000005',
     label: '백엔드',
     color: '#EC4899',
     displayOrder: 2,
-    fieldId: 'role',
+    fieldId: '00000000-0000-0000-0000-000000000011',
     description: '백엔드 역할',
+    isSystemDefault: false,
   },
 ];
 const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
-  // 💡 label 대신 name을 사용하고 있었으므로, label로 키를 변경하고 description 추가
+  // 💡 UUID 형식으로 변경하여 백엔드 검증 통과
   {
-    importanceId: 'i-high',
+    importanceId: '00000000-0000-0000-0000-000000000006',
     label: '높음',
     color: '#F59E0B',
     displayOrder: 1,
-    fieldId: 'importance',
+    fieldId: '00000000-0000-0000-0000-000000000012',
     description: '높은 중요도',
+    level: 5,
+    isSystemDefault: false,
   },
   {
-    importanceId: 'i-low',
+    importanceId: '00000000-0000-0000-0000-000000000007',
     label: '낮음',
     color: '#10B981',
     displayOrder: 2,
-    fieldId: 'importance',
+    fieldId: '00000000-0000-0000-0000-000000000012',
     description: '낮은 중요도',
+    level: 1,
+    isSystemDefault: true,
   },
 ];
 // ⚠️ 주의: 실제 서비스에서는 이 Mock 데이터를 제거하고 새로운 Field/Option API를 구현해야 합니다.
@@ -113,13 +122,14 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   onBoardCreated,
 }) => {
   const { theme } = useTheme();
-  const accessToken = localStorage.getItem('accessToken') || '';
+  // 💡 [수정] accessToken 변수 선언 제거 (인터셉터 위임)
+  // const accessToken = localStorage.getItem('accessToken') || '';
 
   // Form state
   const [title, setTitle] = useState(editData?.title || '');
   const [content, setContent] = useState(editData?.content || '');
   const [selectedStageId, setSelectedStageId] = useState(editData?.stageId || initialStageId || '');
-  // 💡 단일 역할 선택 (selectedRoleId)
+  // 💡 단일 역할 선택
   const [selectedRoleId, setSelectedRoleId] = useState<string>(
     editData?.roleIds?.[0] || '', // editData가 있다면 첫 번째 roleId 사용
   );
@@ -127,7 +137,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     editData?.importanceId || '',
   );
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>(
-    editData?.assigneeIds?.[0] || '', // editData가 복수여도 첫 번째만 사용
+    editData?.assigneeIds?.[0] || '', // editData가 복수여도 첫 번째만 사용 (단일 담당자)
   );
   const [dueDate, setDueDate] = useState<string>(editData?.dueDate || '');
 
@@ -139,7 +149,8 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   const [stages, setStages] = useState<CustomStageResponse[]>(MOCK_STAGES);
   const [roles, setRoles] = useState<CustomRoleResponse[]>(MOCK_ROLES);
   const [importances, setImportances] = useState<CustomImportanceResponse[]>(MOCK_IMPORTANCES);
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+  // 💡 DTO 타입 변경 반영
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberResponse[]>([]);
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -147,8 +158,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   const [isLoadingFields, setIsLoadingFields] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Inline creation state
-  // 💡 인라인 생성 API가 제거되었으므로, 이 상태들을 임시로 비활성화합니다.
+  // Inline creation state (API 미지원으로 임시 비활성화)
   const [showCreateStage, setShowCreateStage] = useState(false);
   const [showCreateRole, setShowCreateRole] = useState(false);
   const [showCreateImportance, setShowCreateImportance] = useState(false);
@@ -177,11 +187,12 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     }
   }, [selectedStageId, selectedRoleId]);
 
-  // 1.2 워크스페이스 멤버 조회 (변경 없음)
+  // 1.2 워크스페이스 멤버 조회
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const members = await getWorkspaceMembers(workspaceId, accessToken);
+        // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+        const members = await getWorkspaceMembers(workspaceId);
         setWorkspaceMembers(members);
         console.log('✅ 워크스페이스 멤버 로드:', members.length);
       } catch (err) {
@@ -192,7 +203,8 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     if (workspaceId) {
       fetchMembers();
     }
-  }, [workspaceId, accessToken]);
+    // 💡 [수정] 의존성 배열에서 accessToken 제거
+  }, [workspaceId]);
 
   // 1.3 드롭다운 외부 클릭 감지 (변경 없음)
   useEffect(() => {
@@ -225,7 +237,9 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   // 2. Inline custom field creation handlers
   // 💡 인라인 생성 API가 제거되었으므로, 이 함수는 오류 메시지를 표시하도록 변경합니다.
   const handleCreateCustomField = async (type: 'stage' | 'role' | 'importance') => {
-    setError(`새 ${type} 필드 추가 기능은 현재 API 스펙 변경으로 인해 비활성화되었습니다.`);
+    setError(
+      `새 ${type} 필드 추가 기능은 현재 API 스펙 변경으로 인해 비활성화되었습니다. (API 미지원)`,
+    );
     setIsLoading(false);
     cancelInlineCreation();
   };
@@ -237,10 +251,9 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     setNewFieldName('');
     setNewFieldColor(CUSTOM_FIELD_COLORS[0].hex);
     setNewImportanceLevel(1);
-    // setError(null); // 에러는 인라인 생성 시 설정되었으므로 유지
   };
 
-  // 3. 제출 핸들러 (로직 변경 없음)
+  // 3. 제출 핸들러
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -262,32 +275,36 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     setError(null);
 
     try {
+      // 💡 [수정] DTO 타입에 맞게 데이터 구성
       const boardData: CreateBoardRequest | UpdateBoardRequest = {
         projectId,
         title: title.trim(),
         content: content.trim() || undefined,
+        // 레거시 필드 사용
         stageId: selectedStageId,
-        roleIds: selectedRoleId ? [selectedRoleId] : undefined,
+        roleIds: selectedRoleId ? [selectedRoleId] : undefined, // 단일 선택이지만 배열로 전송
         importanceId: selectedImportanceId || undefined,
-        // assigneeIds: selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined,
+        // 단일 담당자 ID 사용
         assigneeId: selectedAssigneeId || undefined,
         dueDate: dueDate || undefined,
       };
 
       if (editData) {
-        await updateBoard(editData.boardId, boardData, accessToken);
+        // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+        await updateBoard(editData.boardId, boardData);
         console.log('✅ 보드 수정 성공:', title);
       } else {
-        await createBoard(boardData as CreateBoardRequest, accessToken);
+        // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+        await createBoard(boardData as CreateBoardRequest);
         console.log('✅ 보드 생성 성공:', title);
       }
 
       onBoardCreated();
       onClose();
-    } catch (err) {
-      const error = err as Error;
-      console.error(`❌ 보드 ${editData ? '수정' : '생성'} 실패:`, error);
-      setError(error.message || `보드 ${editData ? '수정' : '생성'}에 실패했습니다.`);
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error?.message || err.message;
+      console.error(`❌ 보드 ${editData ? '수정' : '생성'} 실패:`, errorMsg);
+      setError(errorMsg || `보드 ${editData ? '수정' : '생성'}에 실패했습니다.`);
     } finally {
       setIsLoading(false);
     }
@@ -314,7 +331,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     </div>
   );
 
-  // Helper: Creation Modal (작은 모달로 표시) - 변경 없음 (실제 기능 비활성화)
+  // Helper: Creation Modal (작은 모달로 표시) - 인라인 생성 기능 비활성화
   const renderCreationModal = (type: 'stage' | 'role' | 'importance', title: string) => (
     <div
       className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[100]"
@@ -513,12 +530,13 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                       ))}
                       <button
                         type="button"
+                        // 💡 [수정] 인라인 생성 기능 비활성화
                         onClick={() => {
                           setShowStageDropdown(false);
-                          setShowCreateStage(true);
+                          handleCreateCustomField('stage');
                         }}
-                        className="w-full px-3 py-2 text-left hover:bg-blue-50 transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2"
-                        disabled={isLoading}
+                        className="w-full px-3 py-2 text-left transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        disabled={true}
                       >
                         <Plus className="w-4 h-4" />+ 새 진행 단계 추가
                       </button>
@@ -578,12 +596,13 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                       ))}
                       <button
                         type="button"
+                        // 💡 [수정] 인라인 생성 기능 비활성화
                         onClick={() => {
                           setShowRoleDropdown(false);
-                          setShowCreateRole(true);
+                          handleCreateCustomField('role');
                         }}
-                        className="w-full px-3 py-2 text-left hover:bg-blue-50 transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2"
-                        disabled={isLoading}
+                        className="w-full px-3 py-2 text-left transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        disabled={true}
                       >
                         <Plus className="w-4 h-4" />+ 새 역할 추가
                       </button>
@@ -622,7 +641,6 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                               importances.find((i) => i.importanceId === selectedImportanceId)
                                 ?.label
                             }
-                            {/* 💡 level 필드가 없으므로 표시 로직 제거 */}
                           </>
                         )
                       ) : (
@@ -668,12 +686,13 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                       ))}
                       <button
                         type="button"
+                        // 💡 [수정] 인라인 생성 기능 비활성화
                         onClick={() => {
                           setShowImportanceDropdown(false);
-                          setShowCreateImportance(true);
+                          handleCreateCustomField('importance');
                         }}
-                        className="w-full px-3 py-2 text-left hover:bg-blue-50 transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2"
-                        disabled={isLoading}
+                        className="w-full px-3 py-2 text-left transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        disabled={true}
                       >
                         <Plus className="w-4 h-4" />+ 새 중요도 추가
                       </button>
@@ -689,9 +708,9 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                   </label>
                   <button
                     type="button"
+                    // 💡 [수정] 필드 관리 모달 호출 로직은 MainDashboard에 있을 가능성이 높으므로, 여기서는 콘솔 로그만 남깁니다.
                     onClick={() => {
-                      // Open CustomFieldManageModal
-                      console.log('Open field management modal');
+                      console.log('Open CustomFieldManageModal for project:', projectId);
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition text-sm text-left flex items-center justify-between"
                     disabled={isLoading}
@@ -704,7 +723,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
 
               {/* Assignee and Due Date (변경 없음) */}
               <div className="grid grid-cols-2 gap-4">
-                {/* Assignee - Multi Select */}
+                {/* Assignee - Single Select */}
                 <div className="relative assignee-dropdown-container">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     <User className="w-4 h-4 inline mr-1" />

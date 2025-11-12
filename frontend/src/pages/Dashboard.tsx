@@ -14,58 +14,66 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import UserProfileModal from '../components/modals/UserProfileModal';
-import { UserProfile } from '../types';
 import { ProjectModal } from '../components/modals/ProjectModal';
 import { CreateBoardModal } from '../components/modals/CreateBoardModal';
 import { CustomFieldManageModal } from '../components/modals/CustomFieldManageModal';
 import { FilterBar } from '../components/FilterBar';
-import { getProjects, getBoards, ProjectResponse, BoardResponse } from '../api/board/boardService';
+// 💡 API 함수에서 accessToken 인수를 제거했으므로, import는 그대로 유지합니다.
+import { getBoards, getProjects } from '../api/board/boardService';
 import { getDefaultColorByIndex } from '../constants/colors';
+// 💡 API 함수에서 accessToken 인수를 제거했으므로, import는 그대로 유지합니다.
 import { getWorkspaceMembers } from '../api/user/userService';
 import { BoardDetailModal } from '../components/modals/BoardDetailModal';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { CustomRoleResponse, CustomImportanceResponse, CustomStageResponse } from '../types/board';
-import { WorkspaceMember } from '../types/user';
+import {
+  CustomRoleResponse,
+  CustomImportanceResponse,
+  CustomStageResponse,
+  ProjectResponse,
+  BoardResponse,
+} from '../types/board';
+import { UserProfileResponse, WorkspaceMemberResponse } from '../types/user'; // 💡 WorkspaceMemberResponse로 DTO 이름 통일
 import { AssigneeAvatarStack, AvatarStack } from '../components/common/AvartarStack';
 
 // ⚠️ Mock Data (API 호출 제거를 위한 임시 대안)
+// 💡 UUID 형식으로 변경하여 백엔드 검증 통과
 const MOCK_ROLES: CustomRoleResponse[] = [
   {
-    roleId: 'r-dev',
+    roleId: '00000000-0000-0000-0000-000000000004',
     label: '개발',
     color: '#8B5CF6',
     displayOrder: 0,
-    fieldId: 'role',
+    fieldId: '00000000-0000-0000-0000-000000000011',
     description: '기본값',
     isSystemDefault: true,
   },
   {
-    roleId: 'r-design',
+    roleId: '00000000-0000-0000-0000-000000000013',
     label: '디자인',
     color: '#F59E0B',
     displayOrder: 1,
-    fieldId: 'role',
+    fieldId: '00000000-0000-0000-0000-000000000011',
     description: '',
     isSystemDefault: false,
   },
 ];
 const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
   {
-    importanceId: 'i-high',
+    importanceId: '00000000-0000-0000-0000-000000000006',
     label: '긴급',
     color: '#EF4444',
     displayOrder: 0,
-    fieldId: 'importance',
+    fieldId: '00000000-0000-0000-0000-000000000012',
     description: '',
     isSystemDefault: false,
     level: 5,
   },
   {
-    importanceId: 'i-low',
+    importanceId: '00000000-0000-0000-0000-000000000007',
     label: '낮음',
     color: '#10B981',
     displayOrder: 1,
-    fieldId: 'importance',
+    fieldId: '00000000-0000-0000-0000-000000000012',
     description: '기본값',
     isSystemDefault: true,
     level: 1,
@@ -73,29 +81,29 @@ const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
 ];
 const MOCK_STAGES_LIST: CustomStageResponse[] = [
   {
-    stageId: 's-triage',
+    stageId: '00000000-0000-0000-0000-000000000014',
     label: '트리아지',
     color: '#64748B',
     displayOrder: 0,
-    fieldId: 'stage',
+    fieldId: '00000000-0000-0000-0000-000000000010',
     description: '기본값',
     isSystemDefault: true,
   },
   {
-    stageId: 's-progress',
+    stageId: '00000000-0000-0000-0000-000000000002',
     label: '진행중',
     color: '#3B82F6',
     displayOrder: 1,
-    fieldId: 'stage',
+    fieldId: '00000000-0000-0000-0000-000000000010',
     description: '',
     isSystemDefault: false,
   },
   {
-    stageId: 's-done',
+    stageId: '00000000-0000-0000-0000-000000000003',
     label: '완료',
     color: '#10B981',
     displayOrder: 2,
-    fieldId: 'stage',
+    fieldId: '00000000-0000-0000-0000-000000000010',
     description: '',
     isSystemDefault: true,
   },
@@ -121,8 +129,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
 
   // 1. URL에서 :workspaceId 값을 가져옵니다.
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  // 2. localStorage에서 토큰을 가져옵니다.
-  const accessToken = localStorage.getItem('accessToken') || '';
+
+  // 💡 [수정] localStorage에서 accessToken을 가져오는 코드를 제거합니다.
+  // const accessToken = localStorage.getItem('accessToken') || '';
 
   // 3. prop 대신 URL 파라미터를 사용합니다.
   const currentWorkspaceId = workspaceId || '';
@@ -140,22 +149,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectResponse | null>(null);
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+  // 💡 DTO 타입 변경: WorkspaceMember -> WorkspaceMemberResponse
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberResponse[]>([]);
 
   // 💡 [추가] Custom Field Option 상태 (Role, Importance)
   const [roleOptions, setRoleOptions] = useState<CustomRoleResponse[]>(MOCK_ROLES);
   const [importanceOptions, setImportanceOptions] =
     useState<CustomImportanceResponse[]>(MOCK_IMPORTANCES);
 
-  const [userProfile, _setUserProfile] = useState<UserProfile>({
-    profileId: '',
-    userId: '',
-    nickName: 'User',
-    email: 'user@example.com',
-    profileImageUrl: null,
-    createdAt: '',
-    updatedAt: '',
-  });
+  const [userProfile, _setUserProfile] = useState<UserProfileResponse>();
 
   // UI 상태
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
@@ -198,16 +200,19 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
   const getImportanceOption = (importanceId: string | undefined) =>
     importanceId ? importanceOptions.find((i) => i.importanceId === importanceId) : undefined;
 
-  // 1. 프로젝트 목록 조회 함수 (재사용 가능)
+  // 1. 프로젝트 목록 조회 함수
   const fetchProjects = React.useCallback(async () => {
-    if (!currentWorkspaceId || !accessToken) return;
+    // 💡 [수정] 인증은 인터셉터에 위임
+    if (!currentWorkspaceId) return;
 
     setIsLoading(true);
     setError(null);
     console.log(currentWorkspaceId);
     try {
       console.log(`[Dashboard] 프로젝트 로드 시작 (Workspace: ${currentWorkspaceId})`);
-      const fetchedProjects = await getProjects(currentWorkspaceId, accessToken);
+      // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+      const fetchedProjects = await getProjects(currentWorkspaceId);
+      
       console.log('✅ Projects loaded:', fetchedProjects);
 
       setProjects(fetchedProjects);
@@ -227,23 +232,28 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentWorkspaceId, accessToken]);
+    // 💡 [수정] 의존성 배열에서 accessToken을 제거합니다.
+  }, [currentWorkspaceId]);
 
-  // 2. 워크스페이스 회원 조회 함수 (변경 없음)
+  // 2. 워크스페이스 회원 조회 함수
   const fetchWorkspaceMembers = React.useCallback(async () => {
-    if (!currentWorkspaceId || !accessToken) return;
+    // 💡 [수정] 인증은 인터셉터에 위임
+    if (!currentWorkspaceId) return;
 
     try {
       console.log(`[Dashboard] 워크스페이스 회원 로드 시작 (Workspace: ${currentWorkspaceId})`);
-      const members = await getWorkspaceMembers(currentWorkspaceId, accessToken);
-      console.log('✅ Workspace members loaded:', members);
+      // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+      const members = await getWorkspaceMembers(currentWorkspaceId);
+      // 💡 DTO 타입 변경 반영: WorkspaceMemberResponse
       setWorkspaceMembers(members);
+      console.log('✅ Workspace members loaded:', members);
     } catch (err) {
       const error = err as Error;
       console.error('❌ 워크스페이스 회원 로드 실패:', error);
       setWorkspaceMembers([]);
     }
-  }, [currentWorkspaceId, accessToken]);
+    // 💡 [수정] 의존성 배열에서 accessToken을 제거합니다.
+  }, [currentWorkspaceId]);
 
   // 3. 초기 로드 (변경 없음)
   useEffect(() => {
@@ -252,9 +262,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     handleDragEnd();
   }, [fetchProjects, fetchWorkspaceMembers]);
 
-  // 4. 보드 목록 조회 함수 (재사용 가능)
+  // 4. 보드 목록 조회 함수
   const fetchBoards = React.useCallback(async () => {
-    if (!selectedProject || !accessToken) {
+    // 💡 [수정] 인증은 인터셉터에 위임
+    if (!selectedProject) {
       setColumns([]);
       return;
     }
@@ -263,15 +274,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     setError(null);
     console.log(selectedProject);
     try {
-      // console.log(`[Dashboard] 보드 로드 시작 (Project: ${selectedProject.name})`);
-
       // 1. 프로젝트의 모든 Stages 조회
       const stages = MOCK_STAGES_LIST;
-      // console.log('✅ Stages loaded:', stages);
 
       // 2. 보드 조회
-      const boardsResponse = await getBoards(selectedProject.projectId, accessToken);
-      // console.log('✅ Boards loaded:', boardsResponse);
+      // 💡 [수정] API 호출 시 accessToken 인수를 제거합니다.
+      // 💡 [수정] getBoards는 PaginatedBoardsResponse를 반환하므로, .boards를 사용해야 합니다.
+      const boardsResponse = await getBoards(selectedProject.projectId);
 
       // 3. Stage별로 빈 컬럼 먼저 생성
       const stageMap = new Map<string, { stage: CustomStageResponse; boards: BoardResponse[] }>();
@@ -280,8 +289,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
       });
 
       // 4. 보드를 해당 Stage 컬럼에 추가
-      boardsResponse.boards.forEach((board) => {
-        // 💡 [수정] board.stage 속성이 BoardResponse에서 제거되었으므로, customFields를 통해 stageId를 가져옵니다.
+      boardsResponse.boards.forEach((board: BoardResponse) => {
         const stageId = board.customFields?.stageId;
         if (stageId && stageMap.has(stageId)) {
           stageMap.get(stageId)!.boards.push(board);
@@ -295,8 +303,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
 
       const columns: Column[] = sortedStages.map(({ stage, boards }) => ({
         stageId: stage.stageId,
-        title: stage.label, // 💡 name 대신 label 사용
-        color: stage.color, // Store the color from API
+        title: stage.label,
+        color: stage.color,
         boards: boards,
       }));
 
@@ -309,7 +317,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProject, accessToken]);
+    // 💡 [수정] 의존성 배열에서 accessToken을 제거합니다.
+  }, [selectedProject]);
 
   // 4. 프로젝트 선택 시 보드 로드 (변경 없음)
   useEffect(() => {
@@ -419,6 +428,18 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     setDragOverBoardId(null);
 
     console.log(`✅ Board ${draggedBoard.boardId} Stage 변경 (로컬): ${targetColumnId}`);
+
+    // 💡 TODO: [API 연동 필요] moveBoard API를 호출하여 백엔드에 반영해야 함
+    // try {
+    //     await moveBoard(draggedBoard.boardId, {
+    //         viewId: 'some-view-id', // 현재 뷰 ID (FilterBar에서 관리 필요)
+    //         groupByFieldId: MOCK_STAGES_LIST[0].fieldId, // Stage 필드 ID
+    //         newFieldValue: targetColumnId,
+    //         // beforePosition, afterPosition 계산 로직 필요
+    //     });
+    // } catch (e) {
+    //     // 에러 발생 시 UI 롤백 또는 에러 표시
+    // }
   };
 
   // Column drag handlers (변경 없음)
@@ -453,6 +474,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     setDraggedColumn(null);
 
     // console.log(`✅ Stage 컬럼 순서 변경 (로컬)`);
+    // 💡 TODO: [API 연동 필요] updateFieldOrder API를 호출하여 백엔드에 반영해야 함
   };
 
   // 💡 [추가] 드래그 종료 시 상태를 초기화하는 핸들러 (변경 없음)
@@ -571,14 +593,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
             <div
               className={`w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-sm font-bold ring-2 ring-white/50 text-gray-700 overflow-hidden`}
             >
-              {userProfile.profileImageUrl ? (
+              {userProfile?.profileImageUrl ? (
                 <img
-                  src={userProfile.profileImageUrl}
-                  alt={userProfile.nickName}
+                  src={userProfile?.profileImageUrl}
+                  alt={userProfile?.nickName}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                userProfile.nickName[0]?.toUpperCase() || 'U'
+                userProfile?.nickName[0]?.toUpperCase() || 'U'
               )}
             </div>
           </button>
@@ -1162,18 +1184,18 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
               <div
                 className={`w-10 h-10 ${theme.colors.primary} flex items-center justify-center text-white text-base font-bold rounded-md overflow-hidden`}
               >
-                {userProfile.profileImageUrl ? (
+                {userProfile?.profileImageUrl ? (
                   <img
-                    src={userProfile.profileImageUrl}
-                    alt={userProfile.nickName}
+                    src={userProfile?.profileImageUrl}
+                    alt={userProfile?.nickName}
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  userProfile.nickName[0]?.toUpperCase() || 'U'
+                  userProfile?.nickName[0]?.toUpperCase() || 'U'
                 )}
               </div>
               <div>
-                <h3 className="font-bold text-lg text-gray-900">{userProfile.nickName}</h3>
+                <h3 className="font-bold text-lg text-gray-900">{userProfile?.nickName}</h3>
                 <div className="flex items-center text-green-600 text-xs mt-1">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
                   대화 가능
@@ -1205,9 +1227,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
         </div>
       )}
 
-      {showUserProfile && userProfile && (
-        <UserProfileModal user={userProfile} onClose={() => setShowUserProfile(false)} />
-      )}
+      {showUserProfile && <UserProfileModal onClose={() => setShowUserProfile(false)} />}
 
       {showCreateProject && (
         <ProjectModal

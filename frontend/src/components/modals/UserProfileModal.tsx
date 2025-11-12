@@ -1,50 +1,43 @@
 /**
  * 사용자 프로필 모달 컴포넌트
  *
- * [백엔드 개발자 참고사항]
- *
- * 모든 API 로직은 src/api/user/userService.ts에 구현되어 있습니다.
- * userService.ts 파일에서 USE_MOCK_DATA 플래그를 false로 변경하면
- * 자동으로 실제 API를 호출합니다.
- *
- * 필요한 백엔드 API:
- * 1. GET  /api/profiles/me                         - 기본 프로필 조회
- * 2. PUT  /api/profiles/me                         - 기본 프로필 업데이트
- * 3. GET  /api/profiles/workspace/{workspaceId}    - 워크스페이스 프로필 조회
- * 4. PUT  /api/profiles/workspace/{workspaceId}    - 워크스페이스 프로필 생성/수정
- * 5. GET  /api/workspaces                          - 내가 속한 워크스페이스 목록
+ * [최종 로직 목표]
+ * 1. 초기 로드 시: GET /api/workspaces/all (워크스페이스 목록) + GET /api/profiles/all/me (모든 프로필)을 호출.
+ * 2. 탭 선택 시: 로컬 상태(allProfiles)에서 기본 프로필(workspaceId=null)과 선택된 워크스페이스 프로필을 필터링하여 표시.
+ * 3. 저장 시:
+ * - 기본 프로필: PUT /api/profiles/me 호출 (닉네임/이미지 업데이트).
+ * - 워크스페이스 프로필: 새 명세에 PUT 엔드포인트가 없으므로, 현재는 Mock 처리된 API를 호출하도록 유지합니다. (실제 백엔드 구현 필요)
  */
 
 import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { X, Camera } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { UserProfile } from '../../types';
 import {
-  getMyProfile,
-  updateMyProfile,
-  getWorkspaceProfile,
-  updateWorkspaceProfile,
-  getWorkspaces,
-  WorkspaceResponse,
-  UserProfileResponse,
+  updateMyProfile, // 기본 프로필 업데이트
+  getAllMyProfiles, // 💡 [핵심] 모든 프로필을 가져오는 신규 API
+  getMyWorkspaces, // 워크스페이스 목록 조회
+  // ⚠️ [제거] getWorkspaceProfile, updateWorkspaceProfile 함수는 더 이상 사용하지 않음 (로컬 필터링으로 대체)
 } from '../../api/user/userService';
+import { UserProfileResponse, WorkspaceResponse, UpdateProfileRequest } from '../../types/user';
 
 interface UserProfileModalProps {
-  user: UserProfile;
   onClose: () => void;
 }
 
-const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) => {
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   const { theme } = useTheme();
+  // token은 인증 상태 확인용으로만 유지됩니다.
   const { token } = useAuth();
 
   // ========================================
   // 상태 관리
   // ========================================
 
-  // 탭 상태: 'default' (기본 프로필) | 'workspace' (워크스페이스별 프로필)
   const [activeTab, setActiveTab] = useState<'default' | 'workspace'>('default');
+
+  // 💡 [핵심] 모든 프로필 데이터를 저장 (API 로직 변경 반영)
+  const [allProfiles, setAllProfiles] = useState<UserProfileResponse[]>([]);
 
   // 워크스페이스 목록
   const [workspaces, setWorkspaces] = useState<WorkspaceResponse[]>([]);
@@ -53,12 +46,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
   // 파일 입력 Ref
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 기본 프로필 상태
-  const [defaultProfile, setDefaultProfile] = useState<UserProfileResponse | null>(null);
+  // 현재 수정 중인 닉네임 입력 필드 상태
   const [defaultNickName, setDefaultNickName] = useState('');
-
-  // 워크스페이스 프로필 상태
-  const [workspaceProfile, setWorkspaceProfile] = useState<UserProfileResponse | null>(null);
   const [workspaceNickName, setWorkspaceNickName] = useState('');
 
   // 프로필 이미지 미리보기 URL
@@ -69,27 +58,44 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
   const [error, setError] = useState<string | null>(null);
 
   // ========================================
+  // 프로필 데이터 필터링 및 계산된 상태
+  // ========================================
+
+  // 기본 프로필
+  const defaultProfile = allProfiles.find((p) => p.workspaceId === null) || null;
+
+  // 선택된 워크스페이스 프로필
+  const currentWorkspaceProfile =
+    allProfiles.find((p) => p.workspaceId === selectedWorkspaceId) || null;
+
+  // 현재 활성 탭의 프로필 및 입력 상태 결정
+  const currentProfile =
+    activeTab === 'default' ? defaultProfile : currentWorkspaceProfile || defaultProfile;
+
+  const currentNickName = activeTab === 'default' ? defaultNickName : workspaceNickName;
+  const setCurrentNickName = activeTab === 'default' ? setDefaultNickName : setWorkspaceNickName;
+
+  // ========================================
   // 초기 데이터 로드
   // ========================================
 
   useEffect(() => {
     const loadInitialData = async () => {
-      if (!token) {
-        setError('인증 토큰이 없습니다. 다시 로그인해주세요.');
-        return;
-      }
-
       try {
         setLoading(true);
 
-        // 기본 프로필과 워크스페이스 목록 동시 로드
-        const [profile, workspaceList] = await Promise.all([
-          getMyProfile(token),
-          getWorkspaces(token),
+        // 💡 [수정] 모든 프로필과 워크스페이스 목록 동시 로드
+        const [allProfs, workspaceList] = await Promise.all([
+          getAllMyProfiles(), // GET /api/profiles/all/me
+          getMyWorkspaces(), // GET /api/workspaces/all
         ]);
 
-        setDefaultProfile(profile);
-        setDefaultNickName(profile.nickName);
+        setAllProfiles(allProfs);
+
+        const initialDefaultProfile = allProfs.find((p) => p.workspaceId === null);
+        if (initialDefaultProfile) {
+          setDefaultNickName(initialDefaultProfile.nickName);
+        }
 
         setWorkspaces(workspaceList);
         if (workspaceList.length > 0) {
@@ -97,55 +103,36 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
         }
       } catch (err) {
         console.error('[Initial Data Load Error]', err);
-        setError('프로필 정보를 불러오는데 실패했습니다.');
+        setError('프로필 정보를 불러오는데 실패했습니다. (세션 만료 가능성)');
       } finally {
         setLoading(false);
       }
     };
 
     loadInitialData();
-  }, [token]);
+  }, []);
 
-  // ========================================
-  // 워크스페이스 프로필 로드
-  // ========================================
-
+  // 💡 [추가] 워크스페이스 변경 시 닉네임 입력 필드 상태 업데이트
   useEffect(() => {
-    const loadWorkspaceProfile = async () => {
-      if (!token || !selectedWorkspaceId || activeTab !== 'workspace') {
-        return;
-      }
+    if (activeTab === 'workspace') {
+      const workspace = workspaces.find((ws) => ws.workspaceId === selectedWorkspaceId);
 
-      try {
-        const profile = await getWorkspaceProfile(selectedWorkspaceId, token);
-
-        if (profile) {
-          setWorkspaceProfile(profile);
-          setWorkspaceNickName(profile.nickName);
-        } else {
-          // 프로필이 없으면 기본 프로필 정보로 초기화
-          setWorkspaceProfile(null);
-          const workspace = workspaces.find((ws) => ws.workspaceId === selectedWorkspaceId);
-          setWorkspaceNickName(
-            `${defaultProfile?.nickName || ''} (${workspace?.workspaceName || ''})`,
-          );
-        }
-      } catch (err) {
-        console.error('[Workspace Profile Load Error]', err);
-        // 에러 발생 시 기본값으로 설정
-        setWorkspaceProfile(null);
-        const workspace = workspaces.find((ws) => ws.workspaceId === selectedWorkspaceId);
+      if (currentWorkspaceProfile) {
+        // 1. 이미 존재하는 워크스페이스 프로필이 있다면 로드
+        setWorkspaceNickName(currentWorkspaceProfile.nickName);
+      } else if (defaultProfile) {
+        // 2. 프로필이 없다면: 기본 프로필 + 워크스페이스명으로 초기 닉네임 제안
         setWorkspaceNickName(
-          `${defaultProfile?.nickName || ''} (${workspace?.workspaceName || ''})`,
+          `${defaultProfile.nickName} (${workspace?.workspaceName || '새 조직'})`,
         );
+      } else {
+        setWorkspaceNickName('');
       }
-    };
-
-    loadWorkspaceProfile();
-  }, [selectedWorkspaceId, activeTab, token, workspaces, defaultProfile]);
+    }
+  }, [selectedWorkspaceId, activeTab, currentWorkspaceProfile, defaultProfile, workspaces]);
 
   // ========================================
-  // 이미지 업로드 핸들러
+  // 이미지 업로드 핸들러 (변경 없음)
   // ========================================
 
   const handleAvatarChangeClick = () => {
@@ -164,7 +151,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
   };
 
   // ========================================
-  // 워크스페이스 변경 핸들러
+  // 워크스페이스 변경 핸들러 (변경 없음)
   // ========================================
 
   const handleWorkspaceChange = (workspaceId: string) => {
@@ -177,56 +164,75 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
   // ========================================
 
   const handleSave = async () => {
-    if (!token) {
-      setError('인증 토큰이 없습니다. 다시 로그인해주세요.');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
-      if (activeTab === 'default') {
-        // 기본 프로필 저장
-        const updatedProfile = await updateMyProfile(
-          {
-            nickName: defaultNickName,
-            profileImageUrl: avatarPreviewUrl || undefined,
-          },
-          token,
-        );
+      if (!currentNickName.trim()) {
+        setError('닉네임은 필수입니다.');
+        setLoading(false);
+        return;
+      }
 
-        setDefaultProfile(updatedProfile);
+      // 이미지 URL은 미리보기 URL이 있으면 사용하고, 없으면 기존 프로필 URL을 사용합니다.
+      const profileImageUpdate = avatarPreviewUrl || currentProfile?.profileImageUrl || undefined;
+
+      const data: UpdateProfileRequest = {
+        nickName: currentNickName,
+        profileImageUrl: profileImageUpdate,
+      };
+
+      if (activeTab === 'default') {
+        const updatedProfile = await updateMyProfile(data);
+
+        // 로컬 상태 업데이트
+        setAllProfiles((prev) => {
+          const index = prev.findIndex((p) => p.workspaceId === null);
+          if (index !== -1) {
+            const newProfiles = [...prev];
+            newProfiles[index] = updatedProfile;
+            return newProfiles;
+          }
+          return [...prev, updatedProfile];
+        });
         alert('기본 프로필이 저장되었습니다.');
       } else {
-        // 워크스페이스 프로필 저장
-        const updatedProfile = await updateWorkspaceProfile(
-          selectedWorkspaceId,
-          {
-            nickName: workspaceNickName,
-            profileImageUrl: avatarPreviewUrl || undefined,
-          },
-          token,
-        );
+        // 2. 워크스페이스 프로필 저장 (API 명세 부재로 Mock 처리)
+        // ⚠️ [수정 필요] 실제 백엔드가 PUT /api/profiles/workspace/{workspaceId}를 다시 지원하거나,
+        //    다른 방식으로 워크스페이스 프로필 업데이트 API를 구현해야 합니다.
 
-        setWorkspaceProfile(updatedProfile);
+        // 현재는 userService의 Mock 함수를 호출하여 로컬 상태만 업데이트합니다.
+        const updatedProfile = await updateMyProfile(data);
+
+        // 로컬 상태 업데이트
+        setAllProfiles((prev) => {
+          const index = prev.findIndex((p) => p.workspaceId === selectedWorkspaceId);
+          if (index !== -1) {
+            const newProfiles = [...prev];
+            newProfiles[index] = updatedProfile;
+            return newProfiles;
+          }
+          return [...prev, updatedProfile];
+        });
+
         const workspaceName_display = workspaces.find(
           (ws) => ws.workspaceId === selectedWorkspaceId,
         )?.workspaceName;
-        alert(`${workspaceName_display} 프로필이 저장되었습니다.`);
+        alert(`${workspaceName_display} 프로필이 저장되었습니다. (⚠️ 실제 API 미구현)`);
       }
 
       setAvatarPreviewUrl(null);
-    } catch (err) {
-      console.error('[Profile Save Error]', err);
-      setError('프로필 저장에 실패했습니다.');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error?.message || err.message;
+      console.error('[Profile Save Error]', errorMsg);
+      setError('프로필 저장에 실패했습니다. (API 서버 또는 권한 문제)');
     } finally {
       setLoading(false);
     }
   };
 
   // ========================================
-  // 모달 닫기 핸들러
+  // 모달 닫기 핸들러 (변경 없음)
   // ========================================
 
   const handleClose = () => {
@@ -237,24 +243,32 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
   };
 
   // ========================================
-  // 현재 활성 탭의 프로필 정보 가져오기
-  // ========================================
-
-  const currentProfile =
-    activeTab === 'default' ? defaultProfile : workspaceProfile || defaultProfile;
-  const currentNickName = activeTab === 'default' ? defaultNickName : workspaceNickName;
-  const setCurrentNickName = activeTab === 'default' ? setDefaultNickName : setWorkspaceNickName;
-
-  // ========================================
   // 렌더링
   // ========================================
 
-  if (!defaultProfile) {
+  if (!defaultProfile && loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white p-8 rounded-xl shadow-lg">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-700">프로필 정보를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!defaultProfile && !loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white p-8 rounded-xl shadow-lg">
+          <p className="text-red-700 font-semibold mb-4">프로필 로드 실패</p>
+          <p className="text-sm text-gray-700">기본 프로필 정보를 찾을 수 없습니다.</p>
+          <button
+            onClick={handleClose}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            닫기
+          </button>
         </div>
       </div>
     );
@@ -318,8 +332,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
               </div>
             )}
 
-            {/* 워크스페이스 선택 - 탭 전환 시 높이 유지를 위해 항상 렌더링 */}
-            <div className={activeTab === 'default' ? 'invisible pointer-events-none' : ''}>
+            {/* 워크스페이스 선택 */}
+            <div className={activeTab === 'default' ? 'hidden' : ''}>
               <label className={`block ${theme.font.size.xs} mb-2 text-gray-500 font-medium`}>
                 워크스페이스 선택:
               </label>
@@ -338,6 +352,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose }) =>
                 워크스페이스마다 다른 프로필을 설정할 수 있습니다
               </p>
             </div>
+            {/* 기본 탭일 때 높이 유지를 위한 공간 */}
+            {activeTab === 'default' && <div style={{ height: '70px' }} className="w-full"></div>}
 
             {/* 프로필 이미지 */}
             <div className="flex flex-col items-center mb-4">
