@@ -48,6 +48,23 @@ definitions:
       updatedAt:
         type: string
     type: object
+  dto.CommentResponse:
+    properties:
+      commentId:
+        type: string
+      content:
+        type: string
+      createdAt:
+        type: string
+      updatedAt:
+        type: string
+      userAvatar:
+        type: string
+      userId:
+        type: string
+      userName:
+        type: string
+    type: object
   dto.CreateBoardRequest:
     properties:
       assigneeId:
@@ -76,6 +93,16 @@ definitions:
     required:
     - projectId
     - title
+    type: object
+  dto.CreateCommentRequest:
+    properties:
+      boardId:
+        type: string
+      content:
+        type: string
+    required:
+    - boardId
+    - content
     type: object
   dto.CreateFieldRequest:
     properties:
@@ -376,6 +403,8 @@ definitions:
         type: string
       description:
         type: string
+      isPublic:
+        type: boolean
       name:
         type: string
       ownerEmail:
@@ -460,6 +489,13 @@ definitions:
         maxLength: 200
         minLength: 1
         type: string
+    type: object
+  dto.UpdateCommentRequest:
+    properties:
+      content:
+        type: string
+    required:
+    - content
     type: object
   dto.UpdateFieldOrderRequest:
     properties:
@@ -883,6 +919,166 @@ paths:
       summary: Move board to different column
       tags:
       - boards
+  /api/comments:
+    get:
+      consumes:
+      - application/json
+      description: Get all comments for a specific board (project member only)
+      parameters:
+      - description: Board ID
+        in: query
+        name: boardId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.CommentResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get comments by board
+      tags:
+      - comments
+    post:
+      consumes:
+      - application/json
+      description: Create a new comment on a board
+      parameters:
+      - description: Comment details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CommentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create comment
+      tags:
+      - comments
+  /api/comments/{commentId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a comment (soft delete, author only)
+      parameters:
+      - description: Comment ID
+        in: path
+        name: commentId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete comment
+      tags:
+      - comments
+    put:
+      consumes:
+      - application/json
+      description: Update an existing comment (author only)
+      parameters:
+      - description: Comment ID
+        in: path
+        name: commentId
+        required: true
+        type: string
+      - description: Comment updates
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CommentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update comment
+      tags:
+      - comments
   /api/projects:
     get:
       consumes:
