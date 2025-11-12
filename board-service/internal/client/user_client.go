@@ -31,8 +31,8 @@ type userClient struct {
 
 // UserInfo represents detailed user information from User Service.
 type UserInfo struct {
-	UserID   string `json:"user_id"`
-	Name     string `json:"name"`
+	UserID   string `json:"userId"`    // User Service uses camelCase
+	Name     string `json:"nickName"`  // User Service uses nickName (not name)
 	Email    string `json:"email"`
 	IsActive bool   `json:"isActive"`
 }
