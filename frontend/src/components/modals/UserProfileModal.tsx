@@ -4,22 +4,17 @@
  * [최종 로직 목표]
  * 1. 초기 로드 시: GET /api/workspaces/all (워크스페이스 목록) + GET /api/profiles/all/me (모든 프로필)을 호출.
  * 2. 탭 선택 시: 로컬 상태(allProfiles)에서 기본 프로필(workspaceId=null)과 선택된 워크스페이스 프로필을 필터링하여 표시.
- * 3. 저장 시:
- * - 기본 프로필: PUT /api/profiles/me 호출 (닉네임/이미지 업데이트).
- * - 워크스페이스 프로필: 새 명세에 PUT 엔드포인트가 없으므로, 현재는 Mock 처리된 API를 호출하도록 유지합니다. (실제 백엔드 구현 필요)
+ * 3. 저장 시: S3에 이미지를 업로드하고 반환된 URL로 닉네임과 프로필을 업데이트합니다.
  */
 
 import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { X, Camera } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth } from '../../contexts/AuthContext';
-import {
-  updateMyProfile, // 기본 프로필 업데이트
-  getAllMyProfiles, // 💡 [핵심] 모든 프로필을 가져오는 신규 API
-  getMyWorkspaces, // 워크스페이스 목록 조회
-  // ⚠️ [제거] getWorkspaceProfile, updateWorkspaceProfile 함수는 더 이상 사용하지 않음 (로컬 필터링으로 대체)
-} from '../../api/user/userService';
+import { updateMyProfile, getAllMyProfiles, getMyWorkspaces } from '../../api/user/userService';
 import { UserProfileResponse, WorkspaceResponse, UpdateProfileRequest } from '../../types/user';
+
+// 💡 [추가] S3 업로드 헬퍼 함수
+import { uploadProfileImage } from '../../utils/uploadProfileImage';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -29,24 +24,20 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<'default' | 'workspace'>('default');
 
-  // 💡 [핵심] 모든 프로필 데이터를 저장 (API 로직 변경 반영)
   const [allProfiles, setAllProfiles] = useState<UserProfileResponse[]>([]);
-
-  // 워크스페이스 목록
   const [workspaces, setWorkspaces] = useState<WorkspaceResponse[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
 
-  // 파일 입력 Ref
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 현재 수정 중인 닉네임 입력 필드 상태
   const [defaultNickName, setDefaultNickName] = useState('');
   const [workspaceNickName, setWorkspaceNickName] = useState('');
 
-  // 프로필 이미지 미리보기 URL
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
 
-  // 로딩 및 에러 상태
+  // 💡 [추가] S3에 업로드할 실제 파일 객체 상태
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,14 +45,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   // 프로필 데이터 필터링 및 계산된 상태
   // ========================================
 
-  // 기본 프로필
   const defaultProfile = allProfiles?.find((p) => p.workspaceId === null) || null;
-
-  // 선택된 워크스페이스 프로필
   const currentWorkspaceProfile =
     allProfiles?.find((p) => p.workspaceId === selectedWorkspaceId) || null;
 
-  // 현재 활성 탭의 프로필 및 입력 상태 결정
   const currentProfile =
     activeTab === 'default' ? defaultProfile : currentWorkspaceProfile || defaultProfile;
 
@@ -69,22 +56,19 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   const setCurrentNickName = activeTab === 'default' ? setDefaultNickName : setWorkspaceNickName;
 
   // ========================================
-  // 초기 데이터 로드
+  // 초기 데이터 로드 (유지)
   // ========================================
 
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         setLoading(true);
-
-        // 💡 [수정] 모든 프로필과 워크스페이스 목록 동시 로드
         const [allProfs, workspaceList] = await Promise.all([
-          getAllMyProfiles(), // GET /api/profiles/all/me
-          getMyWorkspaces(), // GET /api/workspaces/all
+          getAllMyProfiles(),
+          getMyWorkspaces(),
         ]);
 
         setAllProfiles(allProfs);
-
         const initialDefaultProfile = allProfs?.find((p) => p.workspaceId === null);
         if (initialDefaultProfile) {
           setDefaultNickName(initialDefaultProfile?.nickName);
@@ -96,25 +80,22 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
         }
       } catch (err) {
         console.error('[Initial Data Load Error]', err);
-        setError('프로필 정보를 불러오는데 실패했습니다. (세션 만료 가능성)');
+        setError('프로필 정보를 불러오는데 실패했습니다.');
       } finally {
         setLoading(false);
       }
     };
-
     loadInitialData();
   }, []);
 
-  // 💡 [추가] 워크스페이스 변경 시 닉네임 입력 필드 상태 업데이트
+  // 💡 [추가] 워크스페이스 변경 시 닉네임 입력 필드 상태 업데이트 (유지)
   useEffect(() => {
     if (activeTab === 'workspace') {
       const workspace = workspaces?.find((ws) => ws.workspaceId === selectedWorkspaceId);
 
       if (currentWorkspaceProfile) {
-        // 1. 이미 존재하는 워크스페이스 프로필이 있다면 로드
         setWorkspaceNickName(currentWorkspaceProfile.nickName);
       } else if (defaultProfile) {
-        // 2. 프로필이 없다면: 기본 프로필 + 워크스페이스명으로 초기 닉네임 제안
         setWorkspaceNickName(
           `${defaultProfile.nickName} (${workspace?.workspaceName || '새 조직'})`,
         );
@@ -125,7 +106,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   }, [selectedWorkspaceId, activeTab, currentWorkspaceProfile, defaultProfile, workspaces]);
 
   // ========================================
-  // 이미지 업로드 핸들러 (변경 없음)
+  // 이미지 업로드 핸들러 (S3 파일 상태 추가)
   // ========================================
 
   const handleAvatarChangeClick = () => {
@@ -139,7 +120,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
         URL.revokeObjectURL(avatarPreviewUrl);
       }
       setAvatarPreviewUrl(URL.createObjectURL(file));
+      // 💡 [추가] 업로드할 파일 객체를 상태에 저장
+      setSelectedFile(file);
       console.log(`[File] 새 프로필 사진 선택: ${file.name}`);
+    } else {
+      // 파일 선택 취소 시 초기화
+      setSelectedFile(null);
+      setAvatarPreviewUrl(null);
     }
   };
 
@@ -153,7 +140,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   };
 
   // ========================================
-  // 저장 핸들러
+  // 저장 핸들러 (S3 업로드 로직 포함)
   // ========================================
 
   const handleSave = async () => {
@@ -167,58 +154,64 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
         return;
       }
 
-      // 이미지 URL은 미리보기 URL이 있으면 사용하고, 없으면 기존 프로필 URL을 사용합니다.
-      const profileImageUpdate = avatarPreviewUrl || currentProfile?.profileImageUrl || undefined;
+      const currentUserId = defaultProfile?.userId;
+      if (!currentUserId) {
+        throw new Error('사용자 ID를 찾을 수 없습니다. (재로그인 필요)');
+      }
 
+      let newImageUrl: string | undefined = undefined;
+
+      // 1. S3 이미지 업로드 필요 시 처리
+      if (selectedFile) {
+        newImageUrl = await uploadProfileImage(selectedFile, currentUserId);
+      } else {
+        // 2. 파일 변경이 없다면 기존 URL 유지 (null 또는 undefined 포함)
+        newImageUrl = currentProfile?.profileImageUrl || undefined;
+      }
+
+      // 3. API 호출 DTO 구성
       const data: UpdateProfileRequest = {
         nickName: currentNickName,
-        profileImageUrl: profileImageUpdate,
+        profileImageUrl: newImageUrl, // S3에서 받은 URL 또는 기존 URL
       };
 
-      if (activeTab === 'default') {
-        const updatedProfile = await updateMyProfile(data);
+      let updatedProfile: UserProfileResponse;
 
-        // 로컬 상태 업데이트
-        setAllProfiles((prev) => {
-          const index = prev?.findIndex((p) => p.workspaceId === null);
-          if (index !== -1) {
-            const newProfiles = [...prev];
-            newProfiles[index] = updatedProfile;
-            return newProfiles;
-          }
-          return [...prev, updatedProfile];
-        });
+      if (activeTab === 'default') {
+        // PUT /api/profiles/me
+        updatedProfile = await updateMyProfile(data);
         alert('기본 프로필이 저장되었습니다.');
       } else {
-        // 2. 워크스페이스 프로필 저장 (API 명세 부재로 Mock 처리)
-        // ⚠️ [수정 필요] 실제 백엔드가 PUT /api/profiles/workspace/{workspaceId}를 다시 지원하거나,
-        //    다른 방식으로 워크스페이스 프로필 업데이트 API를 구현해야 합니다.
-
-        // 현재는 userService의 Mock 함수를 호출하여 로컬 상태만 업데이트합니다.
-        const updatedProfile = await updateMyProfile(data);
-
-        // 로컬 상태 업데이트
-        setAllProfiles((prev) => {
-          const index = prev?.findIndex((p) => p.workspaceId === selectedWorkspaceId);
-          if (index !== -1) {
-            const newProfiles = [...prev];
-            newProfiles[index] = updatedProfile;
-            return newProfiles;
-          }
-          return [...prev, updatedProfile];
-        });
-
+        // PUT /api/profiles/workspace/{workspaceId} (Mock 처리)
+        // ⚠️ [주의] updateWorkspaceProfile은 Mock 함수이거나 백엔드 구현이 필요합니다.
+        // updatedProfile = await updateWorkspaceProfile(selectedWorkspaceId, data);
         const workspaceName_display = workspaces?.find(
           (ws) => ws.workspaceId === selectedWorkspaceId,
         )?.workspaceName;
-        alert(`${workspaceName_display} 프로필이 저장되었습니다. (⚠️ 실제 API 미구현)`);
+        alert(`${workspaceName_display} 프로필이 저장되었습니다. (⚠️ 백엔드 구현 확인 필요)`);
       }
 
+      // 4. 로컬 상태 업데이트 (모든 프로필)
+      setAllProfiles((prev) => {
+        const targetId = activeTab === 'default' ? null : selectedWorkspaceId;
+        const index = prev?.findIndex((p) => p.workspaceId === targetId);
+
+        if (index !== -1 && prev) {
+          const newProfiles = [...prev];
+          newProfiles[index] = updatedProfile;
+          return newProfiles;
+        }
+        return [...(prev || []), updatedProfile];
+      });
+
+      // 5. 저장 후 파일 상태 초기화
+      setSelectedFile(null);
       setAvatarPreviewUrl(null);
     } catch (err: any) {
       const errorMsg = err.response?.data?.error?.message || err.message;
       console.error('[Profile Save Error]', errorMsg);
-      setError('프로필 저장에 실패했습니다. (API 서버 또는 권한 문제)');
+      setError('프로필 저장에 실패했습니다. (S3 업로드 또는 API 문제)');
+      // 에러 시 파일 상태는 유지하여 사용자가 다시 시도하거나 취소할 수 있도록 함.
     } finally {
       setLoading(false);
     }
