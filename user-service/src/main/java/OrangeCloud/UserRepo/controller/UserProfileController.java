@@ -51,7 +51,8 @@ public class UserProfileController {
         UserProfileResponse response = userProfileService.getProfile(userId);
         return ResponseEntity.ok(response);
     }
-    @GetMapping("/workspace/me")
+
+    @GetMapping("/workspace/{workspaceId}")
     @Operation(summary = "내 조직별 프로필 조회", description = "내 조직별 프로필을 조회합니다.")
     public ResponseEntity<UserProfileResponse> getMyWorkspaceIdProfile(@PathVariable UUID workspaceId ,Principal principal) {
         UUID userId = extractUserId(principal);
