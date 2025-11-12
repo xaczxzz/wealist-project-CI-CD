@@ -14,7 +14,6 @@ import { updateMyProfile, getAllMyProfiles, getMyWorkspaces } from '../../api/us
 import { UserProfileResponse, WorkspaceResponse, UpdateProfileRequest } from '../../types/user';
 
 // 💡 [추가] S3 업로드 헬퍼 함수
-import { uploadProfileImage } from '../../utils/uploadProfileImage';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -162,47 +161,47 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
       let newImageUrl: string | undefined = undefined;
 
       // 1. S3 이미지 업로드 필요 시 처리
-      if (selectedFile) {
-        newImageUrl = await uploadProfileImage(selectedFile, currentUserId);
-      } else {
-        // 2. 파일 변경이 없다면 기존 URL 유지 (null 또는 undefined 포함)
-        newImageUrl = currentProfile?.profileImageUrl || undefined;
-      }
+      // if (selectedFile) {
+      //   newImageUrl = await uploadProfileImage(selectedFile, currentUserId);
+      // } else {
+      //   // 2. 파일 변경이 없다면 기존 URL 유지 (null 또는 undefined 포함)
+      //   newImageUrl = currentProfile?.profileImageUrl || undefined;
+      // }
 
-      // 3. API 호출 DTO 구성
-      const data: UpdateProfileRequest = {
-        nickName: currentNickName,
-        profileImageUrl: newImageUrl, // S3에서 받은 URL 또는 기존 URL
-      };
+      // // 3. API 호출 DTO 구성
+      // const data: UpdateProfileRequest = {
+      //   nickName: currentNickName,
+      //   profileImageUrl: newImageUrl, // S3에서 받은 URL 또는 기존 URL
+      // };
 
-      let updatedProfile: UserProfileResponse;
+      // let updatedProfile: UserProfileResponse;
 
-      if (activeTab === 'default') {
-        // PUT /api/profiles/me
-        updatedProfile = await updateMyProfile(data);
-        alert('기본 프로필이 저장되었습니다.');
-      } else {
-        // PUT /api/profiles/workspace/{workspaceId} (Mock 처리)
-        // ⚠️ [주의] updateWorkspaceProfile은 Mock 함수이거나 백엔드 구현이 필요합니다.
-        // updatedProfile = await updateWorkspaceProfile(selectedWorkspaceId, data);
-        const workspaceName_display = workspaces?.find(
-          (ws) => ws.workspaceId === selectedWorkspaceId,
-        )?.workspaceName;
-        alert(`${workspaceName_display} 프로필이 저장되었습니다. (⚠️ 백엔드 구현 확인 필요)`);
-      }
+      // if (activeTab === 'default') {
+      //   // PUT /api/profiles/me
+      //   updatedProfile = await updateMyProfile(data);
+      //   alert('기본 프로필이 저장되었습니다.');
+      // } else {
+      //   // PUT /api/profiles/workspace/{workspaceId} (Mock 처리)
+      //   // ⚠️ [주의] updateWorkspaceProfile은 Mock 함수이거나 백엔드 구현이 필요합니다.
+      //   // updatedProfile = await updateWorkspaceProfile(selectedWorkspaceId, data);
+      //   const workspaceName_display = workspaces?.find(
+      //     (ws) => ws.workspaceId === selectedWorkspaceId,
+      //   )?.workspaceName;
+      //   alert(`${workspaceName_display} 프로필이 저장되었습니다. (⚠️ 백엔드 구현 확인 필요)`);
+      // }
 
-      // 4. 로컬 상태 업데이트 (모든 프로필)
-      setAllProfiles((prev) => {
-        const targetId = activeTab === 'default' ? null : selectedWorkspaceId;
-        const index = prev?.findIndex((p) => p.workspaceId === targetId);
+      // // 4. 로컬 상태 업데이트 (모든 프로필)
+      // setAllProfiles((prev) => {
+      //   const targetId = activeTab === 'default' ? null : selectedWorkspaceId;
+      //   const index = prev?.findIndex((p) => p.workspaceId === targetId);
 
-        if (index !== -1 && prev) {
-          const newProfiles = [...prev];
-          newProfiles[index] = updatedProfile;
-          return newProfiles;
-        }
-        return [...(prev || []), updatedProfile];
-      });
+      //   if (index !== -1 && prev) {
+      //     const newProfiles = [...prev];
+      //     newProfiles[index] = updatedProfile;
+      //     return newProfiles;
+      //   }
+      //   return [...(prev || []), updatedProfile];
+      // });
 
       // 5. 저장 후 파일 상태 초기화
       setSelectedFile(null);
