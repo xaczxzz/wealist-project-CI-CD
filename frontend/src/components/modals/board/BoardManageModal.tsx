@@ -21,8 +21,6 @@ interface BoardManageModalProps {
     stageId: string;
     roleId: string;
     importanceId: string;
-    assigneeIds: string[];
-    dueDate: string;
   } | null;
   workspaceId: string;
   onClose: () => void;
@@ -106,9 +104,9 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
       if (!target.closest('.importance-dropdown-container')) {
         setShowImportanceDropdown(false);
       }
-      if (!target.closest('.assignee-dropdown-container')) {
-        setAssigneeSearch('');
-      }
+      // if (!target.closest('.assignee-dropdown-container')) {
+      //   setAssigneeSearch('');
+      // }
     };
 
     if (showRoleDropdown || showStageDropdown || showImportanceDropdown || assigneeSearch.trim()) {
@@ -420,9 +418,8 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
                           handleCreateCustomField('stage');
                         }}
                         className="w-full px-3 py-2 text-left transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2 disabled:text-gray-400 disabled:cursor-not-allowed"
-                        disabled={true}
                       >
-                        <Plus className="w-4 h-4" />+ 새 진행 단계 추가
+                        <Settings className="w-4 h-4" /> 진행 단계 관리
                       </button>
                     </div>
                   )}
@@ -491,9 +488,8 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
                           handleCreateCustomField('role');
                         }}
                         className="w-full px-3 py-2 text-left transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2 disabled:text-gray-400 disabled:cursor-not-allowed"
-                        disabled={true}
                       >
-                        <Plus className="w-4 h-4" />+ 새 역할 추가
+                        <Settings className="w-4 h-4" /> 역할 관리
                       </button>
                     </div>
                   )}
@@ -506,7 +502,7 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
                 <div className="relative importance-dropdown-container">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     <AlertCircle className="w-4 h-4 inline mr-1" />
-                    중요도 (선택)
+                    중요도
                   </label>
                   <button
                     type="button"
@@ -545,19 +541,6 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
                   {/* 드롭다운 메뉴 */}
                   {showImportanceDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedImportanceId('');
-                          setShowImportanceDropdown(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left hover:bg-gray-100 transition text-sm flex items-center gap-2 ${
-                          selectedImportanceId === '' ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <span className="w-3 h-3 rounded-full bg-gray-300" />
-                        없음
-                      </button>
                       {fieldOptionsLookup?.importances?.map((importance) => (
                         <button
                           key={importance.importanceId}
@@ -585,9 +568,8 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
                           handleCreateCustomField('importance');
                         }}
                         className="w-full px-3 py-2 text-left transition text-sm text-blue-600 font-medium border-t border-gray-200 flex items-center gap-2 disabled:text-gray-400 disabled:cursor-not-allowed"
-                        disabled={true}
                       >
-                        <Plus className="w-4 h-4" />+ 새 중요도 추가
+                        <Settings className="w-4 h-4" /> 중요도 관리
                       </button>
                     </div>
                   )}
@@ -596,7 +578,7 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     <Plus className="w-4 h-4 inline mr-1" />
-                    커스텀 필드 추가
+                    필드 추가
                   </label>
                   <button
                     type="button" // 💡 [수정] 명시적으로 버튼 타입 지정 (폼 충돌 방지)
