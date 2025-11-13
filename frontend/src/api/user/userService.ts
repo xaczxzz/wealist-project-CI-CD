@@ -11,6 +11,7 @@ import {
   WorkspaceSettingsResponse,
   JoinRequestResponse,
   InviteUserRequest,
+  UserWorkspaceResponse,
   // UpdateWorkspaceRequest DTO가 명시되지 않아 임시로 구조를 정의함
 } from '../../types/user';
 import { userRepoClient } from '../apiConfig';
@@ -24,10 +25,11 @@ import { AxiosResponse } from 'axios';
  * 워크스페이스 목록 조회 (현재 사용자가 속한 모든 워크스페이스)
  * [API] GET /api/workspaces/all
  */
-export const getMyWorkspaces = async (): Promise<WorkspaceResponse[]> => {
-  const response: AxiosResponse<WorkspaceResponse[]> = await userRepoClient.get(
+export const getMyWorkspaces = async (): Promise<UserWorkspaceResponse[]> => {
+  const response: AxiosResponse<UserWorkspaceResponse[]> = await userRepoClient.get(
     '/api/workspaces/all',
   );
+  console.log(response.data);
   return response.data;
 };
 
