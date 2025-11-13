@@ -317,23 +317,22 @@ public class WorkspaceService {
         List<Workspace> publicWorkspaces;
 
         if (query != null && !query.trim().isEmpty()) {
-            // 쿼리가 있는 경우 이름으로 검색
+            // 이름으로 검색된 공개 워크스페이스 조회
             publicWorkspaces = workspaceRepository.findAllPublicWorkspacesByNameContaining(query.trim());
         } else {
-            // 쿼리가 없는 경우 모든 공개 워크스페이스 조회
+            // 모든 공개 워크스페이스 조회
             publicWorkspaces = workspaceRepository.findAllPublicWorkspaces();
         }
 
+        // owner 정보 없이 WorkspaceResponse로 변환
         return publicWorkspaces.stream()
-                .map(workspace -> {
-                    WorkspaceMember owner = workspaceMemberRepository.findOwnerByWorkspaceId(workspace.getWorkspaceId())
-                            .orElseThrow(() -> new IllegalArgumentException("Workspace owner not found"));
-                    User ownerUser = userRepository.findById(owner.getUserId())
-                            .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
-                    UserProfile ownerProfile = userProfileRepository.findByWorkspaceIdAndUserId(DEFAULT_WORKSPACE_ID, ownerUser.getUserId())
-                            .orElseThrow(() -> new UserNotFoundException("프로필을 찾을 수 없습니다."));
-                    return convertToWorkspaceResponse(workspace, ownerUser, ownerProfile);
-                })
+                .map(workspace -> WorkspaceResponse.builder()
+                        .workspaceId(workspace.getWorkspaceId())
+                        .workspaceName(workspace.getWorkspaceName())
+                        .needApproved(workspace.getNeedApproved())
+                        .workspaceDescription(workspace.getWorkspaceDescription())
+                        .createdAt(workspace.getCreatedAt())
+                        .build())
                 .collect(Collectors.toList());
     }
 
@@ -551,7 +550,7 @@ public class WorkspaceService {
             throw new IllegalArgumentException("User is already a member of this workspace");
         }
 
-        // TODO: 이미 PENDING 상태의 요청이 있는지 확인하는 로직 추가 필요
+
 
         WorkspaceJoinRequest request = WorkspaceJoinRequest.builder()
                 .workspaceId(workspaceId)
@@ -841,4 +840,5 @@ public class WorkspaceService {
                 .updatedAt(request.getUpdatedAt())
                 .build();
     }
+
 }
