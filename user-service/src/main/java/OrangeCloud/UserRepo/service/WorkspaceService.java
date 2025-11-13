@@ -86,41 +86,6 @@ public class WorkspaceService {
         return convertToWorkspaceResponse(savedWorkspace, creator, creatorProfile);
     }
 
-    /**
-     * 테스트용 또는 신규 가입 사용자를 위한 기본 Workspace 생성
-     */
-//    public UUID createDefaultWorkspaceForUser(User user) {
-//        log.info("Creating default workspace for user: {}", user.getUserId());
-//
-//        String defaultWorkspaceName = user.getNickName() != null && !user.getNickName().isEmpty() ?
-//                user.getNickName() + "'s Workspace" :
-//                user.getEmail().split("@")[0] + "'s Workspace";
-//
-//        Workspace workspace = Workspace.builder()
-//                .ownerId(user.getUserId())
-//                .workspaceName(defaultWorkspaceName)
-//                .workspaceDescription("Default personal workspace")
-//                .isPublic(false) // 기본적으로 비공개
-//                .needApproved(false) // 승인 필요 없음
-//                .isActive(true)
-//                .build();
-//
-//        Workspace savedWorkspace = workspaceRepository.save(workspace);
-//        log.info("Default workspace created: workspaceId={}", savedWorkspace.getWorkspaceId());
-//
-//        WorkspaceMember ownerMember = WorkspaceMember.builder()
-//                .workspaceId(savedWorkspace.getWorkspaceId())
-//                .userId(user.getUserId())
-//                .role(WorkspaceMember.WorkspaceRole.OWNER)
-//                .isDefault(true)
-//                .isActive(true)
-//                .build();
-//
-//        workspaceMemberRepository.save(ownerMember);
-//        log.info("User {} added as OWNER of default workspace {}", user.getUserId(), savedWorkspace.getWorkspaceId());
-//
-//        return savedWorkspace.getWorkspaceId();
-//    }
 
     /**
      * Workspace 정보 수정 (OWNER만)
@@ -271,6 +236,7 @@ public class WorkspaceService {
 
         return convertToWorkspaceResponse(workspace, owner, ownerProfile);
     }
+
     @Transactional(readOnly = true)
     public WorkspaceResponse getWorkspaceByQuery(String workspaceName,UUID workspaceId, UUID requesterId) {
         log.debug("Fetching workspace: workspaceId={}", workspaceId);
@@ -343,7 +309,7 @@ public class WorkspaceService {
                 })
                 .collect(Collectors.toList());
     }
-
+    // 이름에 해당하는 모든 워크스페이스 가져오기
     @Transactional(readOnly = true)
     public List<WorkspaceResponse> searchPublicWorkspaces(String query) {
         log.debug("Searching public workspaces with query: {}", query);
@@ -352,7 +318,7 @@ public class WorkspaceService {
 
         if (query != null && !query.trim().isEmpty()) {
             // 쿼리가 있는 경우 이름으로 검색
-            publicWorkspaces = workspaceRepository.findPublicWorkspacesByNameContaining(query.trim());
+            publicWorkspaces = workspaceRepository.findAllPublicWorkspacesByNameContaining(query.trim());
         } else {
             // 쿼리가 없는 경우 모든 공개 워크스페이스 조회
             publicWorkspaces = workspaceRepository.findAllPublicWorkspaces();
@@ -370,6 +336,34 @@ public class WorkspaceService {
                 })
                 .collect(Collectors.toList());
     }
+
+
+    // owner가 가지고 있는 모든 워크스페이스 query 없으면 모든 워크스페이스 가져옴
+    @Transactional(readOnly = true)
+    public List<WorkspaceResponse> getWorkspacesByOwner(UUID ownerId, String query) {
+        log.debug("Fetching workspaces created by ownerId={} with query={}", ownerId, query);
+
+        List<Workspace> workspaces;
+
+        if (query != null && !query.trim().isEmpty()) {
+            workspaces = workspaceRepository.findByOwnerIdAndWorkspaceNameContainingIgnoreCase(ownerId, query.trim());
+        } else {
+            workspaces = workspaceRepository.findByOwnerId(ownerId);
+        }
+
+        return workspaces.stream()
+                .map(workspace -> {
+                    // ownerId로 이미 알고 있으므로 바로 가져오기
+                    User ownerUser = userRepository.findById(ownerId)
+                            .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
+                    UserProfile ownerProfile = userProfileRepository.findByWorkspaceIdAndUserId(DEFAULT_WORKSPACE_ID, ownerId)
+                            .orElseThrow(() -> new UserNotFoundException("프로필을 찾을 수 없습니다."));
+
+                    return convertToWorkspaceResponse(workspace, ownerUser, ownerProfile);
+                })
+                .collect(Collectors.toList());
+    }
+
 
     /**
      * 기본 Workspace 설정
