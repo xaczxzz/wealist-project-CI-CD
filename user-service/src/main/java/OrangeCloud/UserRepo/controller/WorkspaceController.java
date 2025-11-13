@@ -202,7 +202,7 @@ public class WorkspaceController {
             @Valid @RequestBody InviteUserRequest request,
             Authentication authentication) {
         UUID requesterId = UUID.fromString(authentication.getName());
-        log.info("Inviting user to workspace: workspaceId={}, email={}, name={}", workspaceId, request.getEmail(), request.getName());
+        log.info("Inviting user to workspace: workspaceId={}, query={}", workspaceId, request.getQuery());
         WorkspaceMemberResponse newMember = workspaceService.inviteUser(workspaceId, request, requesterId);
         return ResponseEntity.ok(newMember);
     }
