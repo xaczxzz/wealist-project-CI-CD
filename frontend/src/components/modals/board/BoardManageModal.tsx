@@ -147,13 +147,13 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
       } else {
         await createBoard(boardData as CreateBoardRequest);
       }
-      alert('✅ 보드가 생성되었습니다!');
+      alert(`✅  보드 ${editData?.boardId ? '수정' : '생성'} 완료!`);
       onBoardCreated();
       onClose();
     } catch (err: any) {
       const errorMsg = err.response?.data?.error?.message || err.message;
-      console.error(`❌ 보드 ${editData ? '수정' : '생성'} 실패:`, errorMsg);
-      setError(errorMsg || `보드 ${editData ? '수정' : '생성'}에 실패했습니다.`);
+      console.error(`❌ 보드 ${editData?.boardId ? '수정' : '생성'} 실패:`, errorMsg);
+      setError(errorMsg || `보드 ${editData?.boardId ? '수정' : '생성'}에 실패했습니다.`);
     } finally {
       setIsLoading(false);
     }

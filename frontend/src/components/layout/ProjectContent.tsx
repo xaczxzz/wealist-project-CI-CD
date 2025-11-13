@@ -177,10 +177,39 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
   const handleDrop = useCallback(
     async (targetColumnId: string): Promise<void> => {
       if (!draggedBoard || !draggedFromColumn) return;
+
+      const targetColumn = columns.find((col) => col.stageId === targetColumnId);
+      if (!targetColumn) {
+        handleDragEnd();
+        return;
+      }
+
+      // 1. 로컬 상태 업데이트를 위한 새 컬럼 배열 생성
+      const updatedBoard: BoardResponse = {
+        ...draggedBoard,
+        customFields: { ...draggedBoard.customFields, stageId: targetColumnId },
+      };
+
+      const newColumns = columns.map((col) => {
+        // 1-1. 이전 컬럼에서 보드 제거
+        if (col.stageId === draggedFromColumn) {
+          return { ...col, boards: col.boards.filter((t) => t.boardId !== draggedBoard.boardId) };
+        }
+        // 1-2. 타겟 컬럼에 보드 추가 (순서 조정은 복잡하므로 일단 끝에 추가)
+        if (col.stageId === targetColumnId) {
+          return { ...col, boards: [...col.boards, updatedBoard] };
+        }
+        return col;
+      });
+
+      // 2. 💡 [핵심 수정] 로컬 columns 상태 업데이트
+      setColumns(newColumns);
       handleDragEnd();
+
       console.log(`[API CALL] moveBoard 호출: ${draggedBoard?.boardId} to ${targetColumnId}`);
+      // ⚠️ 실제 API 호출 로직은 여기에 위치합니다.
     },
-    [draggedBoard, draggedFromColumn, dragOverBoardId, columns],
+    [draggedBoard, draggedFromColumn, columns], // 💡 의존성 배열에서 dragOverBoardId는 제외
   );
 
   const handleColumnDragStart = (column: Column): void => {
@@ -198,18 +227,23 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
       const targetIndex = columns.findIndex((col) => col.stageId === targetColumn.stageId);
 
       if (draggedIndex !== -1 && targetIndex !== -1) {
+        // 1. 컬럼 순서 변경 (로컬 Optimistic Update)
         const newColumns = [...columns];
         const [removed] = newColumns.splice(draggedIndex, 1);
         newColumns.splice(targetIndex, 0, removed);
+
+        // 2. 💡 [핵심 수정] 로컬 columns 상태 업데이트
         setColumns(newColumns);
       }
 
       handleDragEnd();
 
       console.log(`[API CALL] updateFieldOrder 호출: Stage 순서 변경`);
+      // ⚠️ 실제 API 호출 로직은 여기에 위치합니다.
     },
     [draggedColumn, columns],
-  ); // Table sorting handler (handleSort)
+  );
+
   const handleSort = (column: 'title' | 'stage' | 'role' | 'importance') => {
     if (viewState.sortColumn === column) {
       setViewField('sortDirection', viewState.sortDirection === 'asc' ? 'desc' : 'asc');
