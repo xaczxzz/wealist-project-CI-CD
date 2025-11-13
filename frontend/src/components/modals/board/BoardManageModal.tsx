@@ -168,16 +168,15 @@ export const BoardManageModal: React.FC<BoardManageModalProps> = ({
         roleId: selectedRoleId || undefined,
         importanceId: selectedImportanceId || undefined,
       };
-
+      console.log(boardData);
       if (editData?.boardId) {
-        // 💡 [수정] 명확한 수정 모드 판단
         await updateBoard(editData!.boardId, boardData);
       } else {
         await createBoard(boardData as CreateBoardRequest);
       }
 
-      onBoardCreated();
-      onClose();
+      // onBoardCreated();
+      // onClose();
     } catch (err: any) {
       const errorMsg = err.response?.data?.error?.message || err.message;
       console.error(`❌ 보드 ${editData ? '수정' : '생성'} 실패:`, errorMsg);

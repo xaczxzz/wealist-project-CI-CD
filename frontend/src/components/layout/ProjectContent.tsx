@@ -7,15 +7,12 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 import { getDefaultColorByIndex } from '../../constants/colors';
 import { AssigneeAvatarStack } from '../common/AvartarStack';
 import {
-  CustomRoleResponse,
-  CustomImportanceResponse,
   CustomStageResponse,
   ProjectResponse,
   BoardResponse,
   Column,
   ViewState,
   FieldOptionsLookup,
-  BaseFieldOption,
 } from '../../types/board';
 import { getBoards } from '../../api/board/boardService';
 import { BoardDetailModal } from '../modals/board/BoardDetailModal';
@@ -229,50 +226,55 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
   };
   // 6. Table/Board View 공통 데이터 필터링/정렬 로직 (useMemo)
   const allProcessedBoards = useMemo(() => {
+    const { searchQuery, sortColumn, sortDirection, showCompleted } = viewState;
     // 1. 모든 컬럼의 보드를 플랫하게 만들고 룩업 정보를 붙입니다.
     const boardsToProcess = columns.flatMap((column) =>
       column.boards.map((board) => {
-        const roleId = board.customFields?.roleId;
+        const roleId = board.customFields?.roleIds?.[0];
         const importanceId = board.customFields?.importanceId;
         const stageId = board.customFields?.stageId;
-
         return {
           ...board,
-          stageName: column.title, // ⚠️ 기존 컬럼 이름 (Stage 기준)
-          stageColor: column.color,
+          stageName: getStageOption(stageId)?.label || column.title,
+          stageColor: getStageOption(stageId)?.color || column.color,
+          stageId: stageId, // 💡 Stage ID를 board 객체에 저장
           roleOption: getRoleOption(roleId),
           importanceOption: getImportanceOption(importanceId),
-          stageOption: getStageOption(stageId),
         };
       }),
-    );
+    ); // 2. 💡 [핵심 필터링] 완료 상태 필터링
+    let filteredBoardsByCompletion = boardsToProcess;
 
-    // 2. 검색 필터링
-    const filteredBoards = viewState.searchQuery?.trim()
-      ? boardsToProcess.filter((board) => {
-          const query = viewState?.searchQuery?.toLowerCase();
-          return (
-            board.title.toLowerCase().includes(query || '') ||
-            board.content?.toLowerCase().includes(query || '')
-          );
+    if (!showCompleted) {
+      // 💡 "완료" 상태의 Stage ID를 찾습니다.
+      const completedStageIds = stageOptions
+        ?.filter((s) => s.label === '완료')
+        .map((s) => s.stageId);
+
+      // 💡 완료 상태의 보드를 제거합니다.
+      filteredBoardsByCompletion = boardsToProcess.filter(
+        (board) => !completedStageIds?.includes(board.stageId),
+      );
+    }
+
+    // 3. 검색 필터링
+    const finalFilteredBoards = searchQuery?.trim()
+      ? filteredBoardsByCompletion.filter((board) => {
+          const query = searchQuery.toLowerCase();
+          const titleMatch = board.title.toLowerCase().includes(query);
+          const contentMatch = board.content?.toLowerCase().includes(query);
+          return titleMatch || contentMatch;
         })
-      : boardsToProcess;
-
-    // 3. 💡 [필터링 by ViewState.filterOption]
-    const finalFilteredBoards = filteredBoards.filter((board) => {
-      // TODO: Filter logic based on viewState.filterOption (stageId, roleId, importanceId)
-      return true;
-    });
+      : filteredBoardsByCompletion;
 
     // 4. 정렬
     const sortedBoards = [...finalFilteredBoards].sort((a, b) => {
-      // 💡 [수정] 정렬 로직 (viewState.sortColumn 사용)
-      if (!viewState.sortColumn) return 0;
+      if (!sortColumn) return 0;
       let aValue: any;
       let bValue: any;
       const direction = viewState.sortDirection === 'asc' ? 1 : -1;
 
-      switch (viewState.sortColumn) {
+      switch (sortColumn) {
         case 'title':
           aValue = a.title.toLowerCase();
           bValue = b.title.toLowerCase();
@@ -289,6 +291,14 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
           aValue = a.importanceOption?.level || 0;
           bValue = b.importanceOption?.level || 0;
           break;
+        case 'assignee': // 💡 정렬은 가능하도록 유지
+          aValue = a.assignee?.name?.toLowerCase() || '';
+          bValue = b.assignee?.name?.toLowerCase() || '';
+          break;
+        case 'dueDate': // 💡 정렬은 가능하도록 유지
+          aValue = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+          bValue = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+          break;
         default:
           return 0;
       }
@@ -299,47 +309,63 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
     });
 
     return sortedBoards;
-  }, [columns, viewState, roleOptions, importanceOptions]);
+  }, [columns, viewState, roleOptions, importanceOptions, stageOptions]);
 
   // 7. 💡 [신규] 뷰 기준(currentView)에 따라 컬럼을 재구성 (useMemo)
   const currentViewColumns = useMemo(() => {
-    // 보드 목록이 없으면 빈 배열 반환
-    if (!allProcessedBoards || allProcessedBoards.length === 0) {
+    if (allProcessedBoards.length === 0) {
       return [];
     }
 
-    // 1. 그룹화 기준 필드를 결정
+    // 💡 [핵심] Stage Options가 없으면 그룹화 불가
+    if (stageOptions?.length === 0 && viewState.currentView === 'stage') return [];
+
     const groupByField = viewState.currentView;
     let baseOptions: any[] = [];
-    let fieldKey: 'stageId' | 'roleId' | 'importanceId' = 'stageId'; // 룩업에서 ID를 가져올 키
-    let lookupField: 'stageOption' | 'roleOption' | 'importanceOption' = 'stageOption'; // 보드 객체에서 룩업 값을 가져올 필드 이름
-    // 💡 [수정] 그룹화 기준에 따라 옵션 배열 선택
+    let fieldKey: 'stageId' | 'roleId' | 'importanceId' = 'stageId';
+    let lookupField: 'stageOption' | 'roleOption' | 'importanceOption' = 'stageOption';
+
+    // 1. 그룹화 기준에 따라 옵션 배열 선택 및 키 지정
     if (groupByField === 'stage') {
-      baseOptions = fieldOptionsLookup?.stages || [];
+      baseOptions = fieldOptionsLookup.stages || [];
       fieldKey = 'stageId';
+      lookupField = 'stageOption';
     } else if (groupByField === 'role') {
       baseOptions = fieldOptionsLookup.roles || [];
       fieldKey = 'roleId';
+      lookupField = 'roleOption';
     } else if (groupByField === 'importance') {
       baseOptions = fieldOptionsLookup.importances || [];
       fieldKey = 'importanceId';
+      lookupField = 'importanceOption';
     } else {
       return [];
     }
 
-    // 2. 그룹화 맵 생성 (옵션 ID 기준)
+    // 💡 [핵심 수정] showCompleted가 false일 때 완료 컬럼 자체를 제거
+    let finalBaseOptions = baseOptions;
+    if (!viewState.showCompleted && groupByField === 'stage') {
+      const completedStageIds = stageOptions
+        ?.filter((s) => s.label === '완료')
+        .map((s) => s.stageId);
+      finalBaseOptions = baseOptions.filter((o) => !completedStageIds?.includes(o.stageId));
+    }
+
+    // 2. 그룹화 맵 생성 및 보드 할당
     const groupedMap = new Map<string, Column>();
-    // Unassigned/Uncategorized 컬럼 추가 (옵션 목록에 없는 경우 대비)
-    groupedMap.set('UNASSIGNED', {
-      stageId: 'UNASSIGNED',
+    const UNASSIGNED_ID = 'UNASSIGNED';
+    groupedMap.set(UNASSIGNED_ID, {
+      stageId: UNASSIGNED_ID,
       title: '미분류',
       color: '#B3B3B3',
       boards: [],
     });
-    baseOptions?.forEach((option) => {
-      const id = option[fieldKey] as string;
+
+    finalBaseOptions.forEach((option) => {
+      // 💡 [수정] 필터링된 옵션 사용
+      const id = (option as any)[fieldKey] as string;
       groupedMap.set(id, {
-        stageId: id, // 💡 그룹화 ID 사용
+        stageId: id,
         title: option.label,
         color: option.color,
         boards: [],
@@ -348,30 +374,25 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
 
     // 3. 보드를 그룹에 할당
     allProcessedBoards.forEach((board) => {
-      const optionId = (board as any)[lookupField]?.[fieldKey]; // 'roleOption'.roleId 추출
+      const optionId = (board as any)[lookupField]?.[fieldKey];
 
       if (optionId && groupedMap.has(optionId)) {
         groupedMap.get(optionId)!.boards.push(board as any);
       } else {
-        // 옵션이 할당되지 않은 경우 '미분류'로 보냅니다.
-        groupedMap.get('UNASSIGNED')!.boards.push(board as any);
+        groupedMap.get(UNASSIGNED_ID)!.boards.push(board as any);
       }
     });
 
     // 4. 컬럼 배열로 변환 (displayOrder 순으로 정렬)
-    const sortedColumns = Array.from(groupedMap.values()).sort((a, b) => {
-      // Unassigned 컬럼은 항상 마지막에 위치
-      if (a.stageId === 'UNASSIGNED') return 1;
-      if (b.stageId === 'UNASSIGNED') return -1;
+    return Array.from(groupedMap.values()).sort((a, b) => {
+      if (a.stageId === UNASSIGNED_ID) return 1;
+      if (b.stageId === UNASSIGNED_ID) return -1;
 
       const orderA = baseOptions.find((o) => (o as any)[fieldKey] === a.stageId)?.displayOrder || 0;
       const orderB = baseOptions.find((o) => (o as any)[fieldKey] === b.stageId)?.displayOrder || 0;
       return orderA - orderB;
     });
-
-    return sortedColumns;
-  }, [allProcessedBoards, viewState.currentView, fieldOptionsLookup]); // 💡 allProcessedBoards에 의존
-
+  }, [allProcessedBoards, viewState, fieldOptionsLookup]); // 💡 showCompleted 의존성 추가
   // 로딩 상태 처리
   if (isLoading && (stageOptions === undefined || stageOptions.length === 0)) {
     return <LoadingSpinner message="보드와 필드 데이터를 로드 중..." />;
@@ -533,7 +554,6 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
 
             // 💡 [추가] onEditBoard에 전달할 초기 데이터 객체 생성
             const initialData: any = {};
-            // fieldKeyName을 동적 속성 이름으로 사용하여 현재 컬럼의 ID를 할당
             initialData[fieldKeyName] = column.stageId;
 
             return (
