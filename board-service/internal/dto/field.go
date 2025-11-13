@@ -121,6 +121,19 @@ type FieldValueResponse struct {
 	UpdatedAt     time.Time   `json:"updatedAt"`
 }
 
+// FieldValueWithInfo represents a field value with field metadata
+// This is used in Board responses to include both value and field information
+type FieldValueWithInfo struct {
+	ValueID       string      `json:"valueId"`
+	FieldID       string      `json:"fieldId"`
+	FieldName     string      `json:"fieldName"`
+	FieldType     string      `json:"fieldType"`
+	Value         interface{} `json:"value"`
+	DisplayOrder  int         `json:"displayOrder,omitempty"`
+	CreatedAt     time.Time   `json:"createdAt"`
+	UpdatedAt     time.Time   `json:"updatedAt"`
+}
+
 // BoardFieldValuesResponse represents all field values for a board
 type BoardFieldValuesResponse struct {
 	BoardID string                 `json:"boardId"`
