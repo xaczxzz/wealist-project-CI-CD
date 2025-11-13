@@ -313,7 +313,27 @@ export const ProjectContent: React.FC<ProjectContentProps> = ({
 
   // 7. 💡 [신규] 뷰 기준(currentView)에 따라 컬럼을 재구성 (useMemo)
   const currentViewColumns = useMemo(() => {
-    if (allProcessedBoards.length === 0) {
+    // 1. 보드 목록이 없거나, 현재 Group By 기준 옵션이 없으면 (Init Data 로드 중) 빈 배열 반환
+    if (
+      !allProcessedBoards ||
+      allProcessedBoards.length === 0
+      //  || !fieldOptionsLookup[viewState?.currentView]?.length
+    ) {
+      // 💡 [보정] allProcessedBoards가 비어있어도, 현재 뷰 기준 옵션만 있다면 빈 컬럼은 보여줘야 함.
+      if (
+        fieldOptionsLookup?.stages?.length &&
+        fieldOptionsLookup?.stages?.length > 0 &&
+        viewState?.currentLayout === 'board'
+      ) {
+        // 최소한 Stage 옵션 기준으로 빈 컬럼은 생성
+        const stages = fieldOptionsLookup.stages;
+        return stages.map((stage) => ({
+          stageId: stage.stageId,
+          title: stage.label,
+          color: stage.color,
+          boards: [],
+        }));
+      }
       return [];
     }
 
