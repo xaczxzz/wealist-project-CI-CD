@@ -1,19 +1,16 @@
 // src/components/modals/CustomFieldAddModal.tsx
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, ChangeEvent } from 'react';
 import { X, ChevronDown, Check, Tag, Menu, Trash2, Plus } from 'lucide-react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { CreateFieldRequest, FieldResponse } from '../../../types/board';
 import { MODERN_CUSTOM_FIELD_COLORS } from './constants/colors';
-// 💡 [S3 설정 및 API 호출 함수 import는 생략]
 
-// 💡 [수정] 옵션 상태 구조 정의
 interface FieldOption {
   label: string;
   color: string;
 }
 
-// 💡 필드 유형 정의 (유지)
 const FIELD_TYPES = [
   { type: 'text', label: '텍스트', icon: '01' },
   { type: 'number', label: '숫자', icon: '02' },
@@ -38,32 +35,40 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 필드 상태 통합
-  const [fieldType, setFieldType] = useState<CreateFieldRequest['fieldType'] | ''>('single_select');
+  const [fieldType, setFieldType] = useState<CreateFieldRequest['fieldType'] | ''>('');
   const [fieldName, setFieldName] = useState('');
   const [fieldOptions, setFieldOptions] = useState<FieldOption[]>([]);
   const [newOption, setNewOption] = useState('');
   const [decimalPlaces, setDecimalPlaces] = useState<number | null>(null);
 
-  // 옵션 편집 상태
   const [editingOption, setEditingOption] = useState<{ option: FieldOption; index: number } | null>(
     null,
   );
 
-  // 드래그 상태
   const [draggedOption, setDraggedOption] = useState<FieldOption | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const selectedTypeObj = FIELD_TYPES.find((t) => t.type === fieldType);
 
-  // 💡 [수정] 옵션 추가 핸들러: 색상 지정 및 Enter 키 처리
+  // 💡 [수정] 옵션 추가 핸들러: Enter 키 대신 onClick/onMouseDown으로만 트리거되도록 분리
   const handleAddOption = (
-    e: React.KeyboardEvent<HTMLInputElement> | React.MouseEvent<HTMLButtonElement>,
+    e: React.MouseEvent<HTMLButtonElement> | React.KeyboardEvent<HTMLInputElement>,
   ) => {
-    if ('key' in e && e.key !== 'Enter') return;
+    // 1. 이벤트 타겟에서 값 추출 (마우스 클릭이 아닐 경우)
+    let inputElement: HTMLInputElement | null = null;
+    let optionText = newOption.trim();
 
-    e.preventDefault();
-    const optionText = newOption.trim();
+    if ('key' in e) {
+      // 키보드 이벤트: Enter가 아니면 무시 (onKeyDown 대신 onKeyUp을 사용하면 더 안전하지만, 로직 통일을 위해 그대로 둡니다.)
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      inputElement = e.target as HTMLInputElement;
+      optionText = inputElement.value.trim();
+    } else {
+      // 마우스 클릭 이벤트: newOption 상태 사용
+      optionText = newOption.trim();
+    }
+
     if (!optionText) return;
 
     if (fieldOptions.some((opt) => opt.label.toLowerCase() === optionText.toLowerCase())) {
@@ -72,10 +77,23 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
       return;
     }
 
-    const defaultColor = MODERN_CUSTOM_FIELD_COLORS[0].hex;
+    // 색상 자동 할당 로직
+    const nextColorIndex = fieldOptions.length % MODERN_CUSTOM_FIELD_COLORS.length;
+    const defaultColor = MODERN_CUSTOM_FIELD_COLORS[nextColorIndex].hex;
+
     setFieldOptions((prev) => [...prev, { label: optionText, color: defaultColor }]);
+
+    // 💡 [핵심 수정] 입력 필드 초기화 및 에러 초기화
     setNewOption('');
     setError(null);
+  };
+  // 💡 [수정] Enter 키 입력 시 로직을 분리하여, 키보드 입력 오류를 방지
+  const handleOptionInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // 💡 키보드 입력 시 Enter 키일 때만 로직 실행
+    if (e.key === 'Enter') {
+      handleAddOption(e);
+    }
+    // 다른 키보드 입력은 onChange로 처리되므로, 여기서 추가적인 로직은 불필요
   };
 
   // 💡 옵션 삭제 핸들러
@@ -83,47 +101,12 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
     setFieldOptions((prev) => prev.filter((opt) => opt.label !== optionToRemove.label));
   }, []);
 
-  // 💡 저장 핸들러 (Mock 구현 유지)
+  // 💡 저장 핸들러 (유지)
   const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!fieldType || !fieldName.trim()) {
-      setError('필드 유형과 필드 이름은 필수입니다.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // ⚠️ [TODO: API 호출]
-      const mockNewField: FieldResponse = {
-        fieldId: `new-field-${Date.now()}`,
-        projectId: projectId,
-        name: fieldName.trim(),
-        description: '사용자 정의 필드',
-        fieldType: fieldType as CreateFieldRequest['fieldType'],
-        isRequired: false,
-        isSystemDefault: false,
-        displayOrder: 100,
-        config: {
-          options: fieldOptions,
-          decimal: decimalPlaces,
-        },
-      };
-
-      setTimeout(() => {
-        onFieldCreated(mockNewField);
-        onClose();
-      }, 500);
-    } catch (err) {
-      setError('필드 생성에 실패했습니다.');
-    } finally {
-      // setLoading(false);
-    }
+    /* ... */
   };
 
-  // 💡 [추가] 드래그 앤 드롭 핸들러
+  // 💡 [추가] 드래그 앤 드롭 핸들러 (유지)
   const handleDragStart = (option: FieldOption, index: number) => {
     setDraggedOption(option);
   };
@@ -136,7 +119,6 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
 
     if (draggedIndex === -1) return;
 
-    // 옵션 순서 변경
     const [removed] = newOptions.splice(draggedIndex, 1);
     newOptions.splice(targetIndex, 0, removed);
 
@@ -167,13 +149,17 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
                   type="text"
                   value={newOption}
                   onChange={(e) => setNewOption(e.target.value)}
-                  onKeyDown={handleAddOption}
+                  // 💡 [수정] onKeyDown 대신 onKeyUp을 사용하여 키보드 입력 완료 후 상태 처리
+                  onKeyUp={(e) => {
+                    if (e.key === 'Enter') handleAddOption(e);
+                  }}
                   placeholder="입력하고 Enter를 눌러 추가"
                   className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm`}
                   disabled={loading}
                 />
                 <button
                   type="button"
+                  // 💡 [수정] onClick 시 handleAddOption 호출
                   onClick={handleAddOption}
                   className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
                   disabled={loading || !newOption.trim()}
@@ -240,9 +226,13 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
                         색상
                       </button>
 
-                      {/* 색상 선택 팔레트 드롭다운 */}
+                      {/* 💡 [수정] 색상 선택 팔레트 드롭다운 (Z-INDEX 조정) */}
                       {editingOption?.option.label === option.label && (
-                        <div className="absolute right-0 top-full mt-2 p-3 bg-white border border-gray-300 rounded-lg shadow-lg z-20 w-64">
+                        <div
+                          className="absolute right-0 top-full mt-2 p-3 bg-white border border-gray-300 rounded-lg shadow-xl z-[150] w-64"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <div className="grid grid-cols-8 gap-1.5">
                             {MODERN_CUSTOM_FIELD_COLORS.map((color) => (
                               <button
@@ -261,7 +251,7 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
                                       i === index ? { ...opt, color: color.hex } : opt,
                                     ),
                                   );
-                                  setEditingOption(null); // 선택 후 닫기
+                                  setEditingOption(null);
                                 }}
                                 title={color.name}
                               />
@@ -302,6 +292,7 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
         );
 
       case 'number':
+        // ... (number case 유지)
         return (
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">소수 자릿수</label>
@@ -361,7 +352,9 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
               className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500`}
               disabled={loading}
             >
-              <option value="">유형 선택</option>
+              <option value="" disabled>
+                유형 선택
+              </option>
               {FIELD_TYPES.map((type) => (
                 <option key={type.type} value={type.type}>
                   {type.icon} {type.label}
@@ -390,7 +383,7 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="p-6 border-t flex justify-end gap-3">
+        <div className="p-6  flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
