@@ -8,6 +8,7 @@ import (
 	"board-service/internal/client"
 	"board-service/internal/config"
 	"board-service/internal/handler"
+	"board-service/internal/middleware"
 	"board-service/internal/repository"
 	"board-service/internal/service"
 

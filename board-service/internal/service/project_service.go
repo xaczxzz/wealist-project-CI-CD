@@ -698,20 +698,36 @@ func (s *projectService) RemoveMember(projectID, memberID, requestUserID string)
 
 // validateWorkspaceMembership checks workspace membership with caching
 func (s *projectService) validateWorkspaceMembership(ctx context.Context, workspaceID, userID, token string) error {
-	// Try cache first
-	cacheExists, isMember, err := s.workspaceCache.GetMembership(ctx, workspaceID, userID)
-	if err != nil {
-		s.logger.Warn("Failed to get workspace membership from cache", zap.Error(err))
-		// Continue to User Service call on cache error
-	}
+	// TODO: Temporarily skip cache for debugging
+	s.logger.Info("Skipping cache, calling User Service directly for debugging",
+		zap.String("workspace_id", workspaceID),
+		zap.String("user_id", userID))
 
-	if cacheExists {
-		// Cache hit
-		if !isMember {
-			return apperrors.New(apperrors.ErrCodeWorkspaceAccessDenied, "워크스페이스 멤버가 아닙니다", 403)
-		}
-		return nil
-	}
+	var isMember bool
+	var err error
+
+	// Try cache first (commented out for debugging)
+	// cacheExists, isMember, err := s.workspaceCache.GetMembership(ctx, workspaceID, userID)
+	// if err != nil {
+	// 	s.logger.Warn("Failed to get workspace membership from cache", zap.Error(err))
+	// 	// Continue to User Service call on cache error
+	// }
+
+	// if cacheExists {
+	// 	// Cache hit
+	// 	s.logger.Info("Cache hit for workspace membership",
+	// 		zap.String("workspace_id", workspaceID),
+	// 		zap.String("user_id", userID),
+	// 		zap.Bool("is_member", isMember))
+	// 	if !isMember {
+	// 		return apperrors.New(apperrors.ErrCodeWorkspaceAccessDenied, "워크스페이스 멤버가 아닙니다", 403)
+	// 	}
+	// 	return nil
+	// }
+
+	// s.logger.Info("Cache miss for workspace membership, calling User Service",
+	// 	zap.String("workspace_id", workspaceID),
+	// 	zap.String("user_id", userID))
 
 	// Cache miss - validate via User Service
 	// First check if workspace exists
@@ -725,11 +741,18 @@ func (s *projectService) validateWorkspaceMembership(ctx context.Context, worksp
 	}
 
 	// Check membership
+	s.logger.Info("Validating workspace membership via User Service",
+		zap.String("workspace_id", workspaceID),
+		zap.String("user_id", userID))
 	isMember, err = s.userClient.ValidateWorkspaceMembership(ctx, workspaceID, userID, token)
 	if err != nil {
 		s.logger.Error("Failed to validate workspace membership", zap.Error(err), zap.String("workspace_id", workspaceID), zap.String("user_id", userID))
 		return apperrors.Wrap(err, apperrors.ErrCodeWorkspaceValidationFailed, "워크스페이스 멤버십 확인 실패", 500)
 	}
+	s.logger.Info("Workspace membership validation result",
+		zap.String("workspace_id", workspaceID),
+		zap.String("user_id", userID),
+		zap.Bool("is_member", isMember))
 
 	// Cache the result
 	if cacheErr := s.workspaceCache.SetMembership(ctx, workspaceID, userID, isMember); cacheErr != nil {
@@ -738,6 +761,9 @@ func (s *projectService) validateWorkspaceMembership(ctx context.Context, worksp
 	}
 
 	if !isMember {
+		s.logger.Warn("User is not a member of workspace",
+			zap.String("workspace_id", workspaceID),
+			zap.String("user_id", userID))
 		return apperrors.New(apperrors.ErrCodeWorkspaceAccessDenied, "워크스페이스 멤버가 아닙니다", 403)
 	}
 

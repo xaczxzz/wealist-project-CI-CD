@@ -223,6 +223,26 @@ public class WorkspaceController {
     }
 
     /**
+     * 워크스페이스 접근 권한 확인 (Board Service용)
+     * GET /api/workspaces/{workspaceId}/validate-member/{userId}
+     */
+    @GetMapping("/{workspaceId}/validate-member/{userId}")
+    @Operation(summary = "워크스페이스 접근 확인", description = "특정 사용자가 워크스페이스에 접근 가능한지 확인합니다.")
+    public ResponseEntity<WorkspaceValidationResponse> validateWorkspace(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID userId) {
+        log.info("Validating workspace access (Controller): workspaceId={}, userId={}", workspaceId, userId);
+        boolean isValid = workspaceService.validateWorkspaceAccess(workspaceId, userId);
+        log.info("Workspace validation result (Controller): workspaceId={}, userId={}, isValid={}", workspaceId, userId, isValid);
+        WorkspaceValidationResponse response = WorkspaceValidationResponse.builder()
+                .workspaceId(workspaceId)
+                .userId(userId)
+                .isValid(isValid)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 승인 대기 회원 목록 조회 (프론트엔드 '/pendingMembers' 경로 지원)
      * GET /api/workspaces/{workspaceId}/pendingMembers
      */
@@ -360,4 +380,5 @@ public class WorkspaceController {
         List<JoinRequestResponse> joinRequests = workspaceService.getJoinRequests(workspaceId, userId, status);
         return ResponseEntity.ok(joinRequests);
     }
+
 }

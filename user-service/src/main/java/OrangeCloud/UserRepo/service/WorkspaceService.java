@@ -717,6 +717,32 @@ public class WorkspaceService {
 
 
     // ============================================================================
+    // 워크스페이스 접근 확인 (Public API for Board Service)
+    // ============================================================================
+
+    /**
+     * 워크스페이스 접근 권한 확인 (Board Service용 Public API)
+     */
+    @Transactional(readOnly = true)
+    public boolean validateWorkspaceAccess(UUID workspaceId, UUID userId) {
+        log.info("Validating workspace access: workspaceId={}, userId={}", workspaceId, userId);
+
+        // 워크스페이스 존재 여부 확인
+        boolean workspaceExists = workspaceRepository.existsById(workspaceId);
+        log.info("Workspace exists check: workspaceId={}, exists={}", workspaceId, workspaceExists);
+        if (!workspaceExists) {
+            log.warn("Workspace not found: workspaceId={}", workspaceId);
+            return false;
+        }
+
+        // 사용자가 워크스페이스 멤버인지 확인
+        boolean isMember = workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId);
+        log.info("Workspace membership check: workspaceId={}, userId={}, isMember={}", workspaceId, userId, isMember);
+        log.info("Workspace access validation result: workspaceId={}, userId={}, isValid={}", workspaceId, userId, isMember);
+        return isMember;
+    }
+
+    // ============================================================================
     // 권한 확인 (Private Methods)
     // ============================================================================
 
