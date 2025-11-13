@@ -157,7 +157,7 @@ export interface CreateJoinRequestRequest {
  * [API: POST /api/workspaces/{workspaceId}/members/invite]
  */
 export interface InviteUserRequest {
-  userId: string;
+  query: string;
 }
 
 /**

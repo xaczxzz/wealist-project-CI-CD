@@ -26,7 +26,7 @@ import {
   CreateFieldOptionRequest,
   CreateFieldRequest,
   UpdateFieldRequest,
-  ProjectInitDataResponse,
+  ProjectInitSettingResponse,
 } from '../../types/board'; // 💡 최신 타입 임포트
 
 /**
@@ -42,14 +42,15 @@ const USE_MOCK_DATA = false;
 /**
  * 프로젝트 초기 페이지 로드에 필요한 모든 데이터를 조회합니다.
  * (보드, 필드/옵션, 필드 유형 목록 포함)
- * [API] GET /api/projects/{projectId}/init-data
+ * [API] GET /api/projects/{projectId}/init-settings
  */
-export const getProjectInitData = async (projectId: string): Promise<ProjectInitDataResponse> => {
+export const getProjectInitSettings = async (
+  projectId: string,
+): Promise<ProjectInitSettingResponse> => {
   // ⚠️ Mock data는 삭제하고 실제 API 호출만 남깁니다. (Mock 환경은 USE_MOCK_DATA로 제어)
   try {
-    const response: AxiosResponse<{ data: ProjectInitDataResponse }> = await boardServiceClient.get(
-      `/api/projects/${projectId}/init-data`,
-    );
+    const response: AxiosResponse<{ data: ProjectInitSettingResponse }> =
+      await boardServiceClient.get(`/api/projects/${projectId}/init-settings`);
     return response.data.data;
   } catch (error) {
     console.error('getProjectInitData error:', error);

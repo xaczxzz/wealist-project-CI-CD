@@ -351,15 +351,13 @@ export interface FieldWithOptionsResponse extends FieldResponse {
 }
 
 /**
- * @summary 프로젝트 초기화 응답 DTO (dto.ProjectInitDataResponse)
- * [API: GET /api/projects/{projectId}/init-data]
+ * @summary 프로젝트 초기화 응답 DTO (dto.ProjectInitSettingResponse)
+ * [API: GET /api/projects/{projectId}/init-settings]
  */
-export interface ProjectInitDataResponse {
+export interface ProjectInitSettingResponse {
   project: ProjectResponse; // Project Basic Info
-  boards: BoardResponse[];
   fields: FieldWithOptionsResponse[]; // 모든 필드 정의와 그 옵션
   fieldTypes: FieldTypeInfo[]; // 사용 가능한 필드 유형 목록
-  members: any[]; // Project Member Basic Info DTO가 필요하지만 일단 any[]로 유지
   defaultViewId?: string;
 }
 

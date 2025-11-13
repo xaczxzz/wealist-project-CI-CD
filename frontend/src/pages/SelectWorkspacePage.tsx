@@ -6,8 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   getMyWorkspaces,
   createWorkspace,
-  searchWorkspaces,
   createJoinRequest,
+  getPublicWorkspaces,
 } from '../api/user/userService';
 import { Search, Plus, X, AlertCircle, Settings, LogOut } from 'lucide-react';
 import { CreateWorkspaceRequest, WorkspaceResponse, JoinRequestResponse } from '../types/user';
@@ -84,7 +84,7 @@ const SelectWorkspacePage: React.FC = () => {
       setIsSearching(true);
       setError(null);
       try {
-        const results = await searchWorkspaces(query);
+        const results = await getPublicWorkspaces(query);
 
         // 내 워크스페이스에 이미 속한 항목 제외
         const myIds = new Set(workspaces?.map((w) => w.workspaceId) || []);

@@ -1,0 +1,1 @@
+export type IROLES = 'OWNER' | 'ORGANIZER' | 'MEMBER' | null | undefined
