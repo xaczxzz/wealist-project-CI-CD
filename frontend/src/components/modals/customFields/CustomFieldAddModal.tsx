@@ -1,6 +1,6 @@
 // src/components/modals/CustomFieldAddModal.tsx
 
-import React, { useState, useCallback, ChangeEvent } from 'react';
+import React, { useState, useCallback, ChangeEvent, useRef, useEffect } from 'react';
 import { X, ChevronDown, Check, Tag, Menu, Trash2, Plus } from 'lucide-react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { CreateFieldRequest, FieldResponse } from '../../../types/board';
@@ -41,9 +41,15 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
   const [newOption, setNewOption] = useState('');
   const [decimalPlaces, setDecimalPlaces] = useState<number | null>(null);
 
-  const [editingOption, setEditingOption] = useState<{ option: FieldOption; index: number } | null>(
-    null,
-  );
+  // 💡 [수정] 옵션 편집 상태를 저장하며, 팔레트 위치 계산에 필요한 정보 포함
+  const [editingOption, setEditingOption] = useState<{
+    option: FieldOption;
+    index: number;
+    targetRect: DOMRect;
+  } | null>(null);
+
+  // 💡 [추가] 팔레트 위치 계산을 위한 Ref
+  const colorButtonRef = useRef<HTMLButtonElement>(null);
 
   const [draggedOption, setDraggedOption] = useState<FieldOption | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -209,56 +215,23 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
 
                     {/* 옵션 편집/삭제 버튼 */}
                     <div className="relative flex gap-2 items-center">
-                      {/* 현재 색상 버튼 (클릭 시 팔레트 토글) */}
                       <button
                         type="button"
-                        onClick={() =>
+                        ref={editingOption?.option.label === option.label ? colorButtonRef : null} // 💡 Ref 연결
+                        onClick={(e) => {
+                          // 💡 [수정] 버튼 위치 정보 저장 후 팔레트 열기
+                          const rect = e.currentTarget.getBoundingClientRect();
                           setEditingOption((prev) =>
-                            prev?.option.label === option.label ? null : { option, index },
-                          )
-                        }
-                        className={`px-2 py-1 text-xs rounded-md border transition-colors ${
-                          editingOption?.option.label === option.label
-                            ? 'bg-gray-200'
-                            : 'hover:bg-gray-100'
-                        }`}
+                            prev?.option.label === option.label
+                              ? null
+                              : { option, index, targetRect: rect },
+                          );
+                          e.stopPropagation();
+                        }}
+                        className={`px-2 py-1 text-xs rounded-md border transition-colors ...`}
                       >
                         색상
                       </button>
-
-                      {/* 💡 [수정] 색상 선택 팔레트 드롭다운 (Z-INDEX 조정) */}
-                      {editingOption?.option.label === option.label && (
-                        <div
-                          className="absolute right-0 top-full mt-2 p-3 bg-white border border-gray-300 rounded-lg shadow-xl z-[150] w-64"
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="grid grid-cols-8 gap-1.5">
-                            {MODERN_CUSTOM_FIELD_COLORS.map((color) => (
-                              <button
-                                key={color.hex}
-                                type="button"
-                                className={`w-6 h-6 rounded-full border-2 ${
-                                  option.color === color.hex
-                                    ? 'ring-2 ring-blue-500'
-                                    : 'hover:scale-110'
-                                }`}
-                                style={{ backgroundColor: color.hex }}
-                                onClick={() => {
-                                  // 색상 업데이트
-                                  setFieldOptions((prev) =>
-                                    prev.map((opt, i) =>
-                                      i === index ? { ...opt, color: color.hex } : opt,
-                                    ),
-                                  );
-                                  setEditingOption(null);
-                                }}
-                                title={color.name}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
 
                       <button
                         type="button"
@@ -403,6 +376,85 @@ export const CustomFieldAddModal: React.FC<CustomFieldAddModalProps> = ({
           </button>
         </div>
       </form>
+      {/* 💡 [핵심 수정] 팔레트를 모달의 최상위 컨테이너 바로 밑에 렌더링 */}
+      {editingOption && (
+        <ColorPickerPortal
+          option={editingOption.option}
+          index={editingOption.index}
+          targetRect={editingOption.targetRect}
+          setFieldOptions={setFieldOptions}
+          onClose={() => setEditingOption(null)}
+        />
+      )}
+    </div>
+  );
+};
+// =======================================================
+// 💡 ColorPickerPortal 컴포넌트 정의 (새로운 컴포넌트)
+// =======================================================
+
+interface ColorPickerPortalProps {
+  option: FieldOption;
+  index: number;
+  targetRect: DOMRect;
+  setFieldOptions: React.Dispatch<React.SetStateAction<FieldOption[]>>;
+  onClose: () => void;
+}
+
+const ColorPickerPortal: React.FC<ColorPickerPortalProps> = ({
+  option,
+  index,
+  targetRect,
+  setFieldOptions,
+  onClose,
+}) => {
+  const handleColorSelect = (newColor: string) => {
+    // 색상 업데이트 로직 (setFieldOptions 사용)
+    setFieldOptions((prev) =>
+      prev.map((opt, i) => (i === index ? { ...opt, color: newColor } : opt)),
+    );
+    onClose();
+  };
+
+  // 💡 [추가] 외부 클릭 감지 (모달이 아닌 팔레트만 닫기 위함)
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // 모달 내부를 클릭하면 닫지 않음
+      if (target.closest('.color-picker-palette') || target.closest('.color-button-trigger')) {
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [onClose]);
+
+  return (
+    <div
+      // 💡 [수정] z-[150]으로 모달보다 위에 위치하며, fixed로 위치를 고정
+      className="fixed color-picker-palette z-[150] w-64 p-3 bg-white border border-gray-300 rounded-lg shadow-xl"
+      style={{
+        top: targetRect.bottom + 5, // 버튼 아래에 위치
+        left: targetRect.left - 180, // 버튼 기준 왼쪽으로 이동 (드롭다운이 오른쪽으로 넘어가지 않도록)
+      }}
+      onMouseDown={(e) => e.stopPropagation()} // 💡 모달 닫힘 방지
+    >
+      <div className="grid grid-cols-8 gap-1.5">
+        {MODERN_CUSTOM_FIELD_COLORS.map((color) => (
+          <button
+            key={color.hex}
+            type="button"
+            className={`w-6 h-6 rounded-full border-2 ${
+              option.color === color.hex ? 'ring-2 ring-blue-500' : 'hover:scale-110'
+            }`}
+            style={{ backgroundColor: color.hex }}
+            onClick={() => handleColorSelect(color.hex)}
+            title={color.name}
+          />
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-gray-500">색상 선택</p>
     </div>
   );
 };

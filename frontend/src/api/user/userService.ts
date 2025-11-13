@@ -66,12 +66,12 @@ export const getWorkspace = async (workspaceId: string): Promise<WorkspaceRespon
 
 /**
  * 워크스페이스 생성
- * [API] POST /api/workspaces
+ * [API] POST /api/workspaces/create
  * * Response: WorkspaceResponse (API 스펙에 따라 { data: WorkspaceResponse }가 아닐 수 있음)
  */
 export const createWorkspace = async (data: CreateWorkspaceRequest): Promise<WorkspaceResponse> => {
   const response: AxiosResponse<WorkspaceResponse> = await userRepoClient.post(
-    '/api/workspaces',
+    '/api/workspaces/create',
     data,
   );
   return response.data;
