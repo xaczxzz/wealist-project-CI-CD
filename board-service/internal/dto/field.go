@@ -121,6 +121,19 @@ type FieldValueResponse struct {
 	UpdatedAt     time.Time   `json:"updatedAt"`
 }
 
+// FieldValueWithInfo represents a field value with field metadata
+// This is used in Board responses to include both value and field information
+type FieldValueWithInfo struct {
+	ValueID       string      `json:"valueId"`
+	FieldID       string      `json:"fieldId"`
+	FieldName     string      `json:"fieldName"`
+	FieldType     string      `json:"fieldType"`
+	Value         interface{} `json:"value"`
+	DisplayOrder  int         `json:"displayOrder,omitempty"`
+	CreatedAt     time.Time   `json:"createdAt"`
+	UpdatedAt     time.Time   `json:"updatedAt"`
+}
+
 // BoardFieldValuesResponse represents all field values for a board
 type BoardFieldValuesResponse struct {
 	BoardID string                 `json:"boardId"`
@@ -134,8 +147,8 @@ type CreateViewRequest struct {
 	ProjectID      string                 `json:"projectId" binding:"required,uuid"`
 	Name           string                 `json:"name" binding:"required,min=1,max=255"`
 	Description    string                 `json:"description" binding:"omitempty,max=1000"`
-	IsDefault      bool                   `json:"isDefault"`
-	IsShared       bool                   `json:"isShared"`
+	IsDefault      bool                   `json:"isDefault"`                  // Default: false (only one default view per project)
+	IsShared       *bool                  `json:"isShared"`                   // Default: true if nil (team-shared view, most common)
 	Filters        map[string]interface{} `json:"filters"`
 	SortBy         string                 `json:"sortBy" binding:"omitempty"`
 	SortDirection  string                 `json:"sortDirection" binding:"omitempty,oneof=asc desc"`
@@ -205,7 +218,7 @@ type BoardOrder struct {
 	Position string `json:"position" binding:"required"` // Fractional index position
 }
 
-// ==================== Project Init Data DTOs ====================
+// ==================== Project Init Settings DTOs ====================
 
 // FieldWithOptionsResponse represents a field with its options (for select types)
 type FieldWithOptionsResponse struct {
@@ -232,22 +245,17 @@ type FieldTypeInfo struct {
 	HasOptions  bool   `json:"hasOptions"`  // Whether this type supports options
 }
 
-// ProjectInitDataResponse contains all data needed for initial project page load
-type ProjectInitDataResponse struct {
+// ProjectInitSettingsResponse contains static configuration data needed for project initialization
+// This includes project info, field definitions, and field types (but not dynamic data like boards/members)
+type ProjectInitSettingsResponse struct {
 	// Project basic information
 	Project ProjectBasicInfo `json:"project"`
-
-	// All boards in the project (sorted by position if available, otherwise by createdAt)
-	Boards []BoardResponse `json:"boards"`
 
 	// All field definitions with their options
 	Fields []FieldWithOptionsResponse `json:"fields"`
 
 	// Available field types (text, number, date, etc.)
 	FieldTypes []FieldTypeInfo `json:"fieldTypes"`
-
-	// Project members (for assignee dropdown)
-	Members []ProjectMemberBasicInfo `json:"members"`
 
 	// Default view ID (if exists)
 	DefaultViewID string `json:"defaultViewId,omitempty"`

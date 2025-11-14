@@ -1,35 +1,50 @@
+// src/pages/Dashboard.tsx (MainDashboard.tsx)
+
 import { useParams } from 'react-router-dom';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Briefcase } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+
 // 💡 [분리된 컴포넌트]
 import MainLayout from '../components/layout/MainLayout';
 import { ProjectHeader } from '../components/layout/ProjectHeader';
 import { ProjectContent } from '../components/layout/ProjectContent';
 
-import UserProfileModal from '../components/modals/UserProfileModal';
-import { ProjectModal } from '../components/modals/ProjectModal';
-import { CustomFieldManageModal } from '../components/modals/CustomFieldManageModal';
+import UserProfileModal from '../components/modals/user/UserProfileModal';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
-import { getProjects } from '../api/board/boardService';
+import { getProjects, getProjectInitSettings } from '../api/board/boardService';
 import { getWorkspaceMembers } from '../api/user/userService';
-import { ProjectResponse } from '../types/board';
+
+import {
+  ProjectResponse,
+  CustomRoleResponse,
+  CustomImportanceResponse,
+  FieldWithOptionsResponse,
+  FieldOptionsLookup,
+  CustomStageResponse,
+  FieldTypeInfo, // 💡 필드와 옵션 정보를 담는 통합 DTO
+} from '../types/board';
 import { WorkspaceMemberResponse } from '../types/user';
-import { CreateBoardModal } from '../components/modals/CreateBoardModal';
+import { CustomFieldManageModal } from '../components/modals/board/customFields/CustomFieldManageModal';
+import { BoardManageModal } from '../components/modals/board/BoardManageModal';
+import { ProjectModal } from '../components/modals/board/ProjectModal';
+import { IROLES } from '../types/common';
 
 interface MainDashboardProps {
   onLogout: () => void;
 }
+
 // 💡 [추가] UI/모달 상태를 통합하는 인터페이스
 interface UIState {
-  showProjectSelector: boolean; // 프로젝트 드롭다운
-  showUserProfile: boolean; // 사용자 프로필 모달
-  showCreateProject: boolean; // 프로젝트 생성 모달
-  showManageModal: boolean; // 커스텀 필드 관리 모달
-  showProjectSettings: boolean; // 프로젝트 설정 모달
-  showCreateBoard: boolean;
+  showProjectSelector?: boolean;
+  showUserProfile?: boolean;
+  showCreateProject?: boolean;
+  showManageModal?: boolean;
+  showProjectSettings?: boolean;
+  showCreateBoard?: boolean;
 }
+
 // =============================================================================
 // MainDashboard (컨테이너 역할)
 // =============================================================================
@@ -38,9 +53,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
   const currentWorkspaceId = workspaceId || '';
 
   const { theme } = useTheme();
-  const currentRole = useRef<'OWNER' | 'ORGANIZER' | 'MEMBER'>('ORGANIZER');
+  const currentRole = useRef<IROLES>('ORGANIZER');
   const canAccessSettings = currentRole.current === 'OWNER' || currentRole.current === 'ORGANIZER';
-
   // [핵심 상태]
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectResponse | null>(null);
@@ -48,28 +62,60 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 💡 [통합] UI/모달 상태를 하나의 객체로 관리
-  const [uiState, setUiState] = useState<UIState>({
-    showProjectSelector: false,
-    showUserProfile: false,
-    showCreateProject: false,
-    showManageModal: false,
-    showProjectSettings: false,
-    showCreateBoard: false,
+  const [uiState, setUiState] = useState<UIState>({});
+  const [editBoardData, setEditBoardData] = useState<any>(null);
+  const [editFieldData, setEditFieldData] = useState<any>(null);
+
+  // 💡 [추가] 초기 옵션 데이터를 저장할 상태 (ProjectContent로 전달)
+  const [fieldOptionsLookup, setFieldOptionsLookup] = useState<FieldOptionsLookup>({
+    roles: [],
+    importances: [],
+    stages: [], // Stage도 룩업에 포함
   });
 
-  // 💡 ProjectContent로 넘길 상태: 보드 생성/수정 데이터
-  const [editBoardData, setEditBoardData] = useState<any>(null);
+  const [filedTypesLookup, setFieldTypesLookup] = useState<FieldTypeInfo[]>([]);
 
-  // 💡 [추가] 모달 상태 토글 헬퍼 함수
   const toggleUiState = useCallback((key: keyof UIState, show?: boolean) => {
     setUiState((prev) => ({
       ...prev,
-      [key]: show !== undefined ? show : !prev[key],
+      [key]: show !== undefined ? show : !prev?.[key],
     }));
   }, []);
 
-  // 1. 프로젝트 목록 조회 함수
+  // 💡 [추가] Helper: FieldWithOptionsResponse -> Custom DTO 변환
+  const mapFieldOptions = (fields: FieldWithOptionsResponse[]): FieldOptionsLookup => {
+    const roles: CustomRoleResponse[] = [];
+    const importances: CustomImportanceResponse[] = [];
+    const stages: CustomStageResponse[] = [];
+
+    fields?.forEach((field) => {
+      // name을 기반으로 시스템 필드를 식별
+      if (field.fieldType === 'single_select' || field.fieldType === 'multi_select') {
+        field.options.forEach((opt) => {
+          const base = {
+            label: opt.label,
+            color: opt.color,
+            displayOrder: opt.displayOrder,
+            fieldId: opt.fieldId,
+            isSystemDefault: field.isSystemDefault,
+            description: opt.description || '',
+          };
+
+          if (field.name === 'Role') {
+            roles?.push({ ...base, roleId: opt.optionId });
+          } else if (field.name === 'Importance') {
+            importances?.push({ ...base, importanceId: opt.optionId });
+          } else if (field.name === 'Stage') {
+            stages?.push({ ...base, stageId: opt.optionId });
+          }
+        });
+      }
+    });
+
+    return { roles, importances, stages };
+  };
+
+  // 1. 프로젝트 목록 조회 함수 (Header Dropdown용)
   const fetchProjects = useCallback(async () => {
     if (!currentWorkspaceId) return;
 
@@ -80,13 +126,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
       setProjects(fetchedProjects);
 
       if (fetchedProjects.length > 0 && !selectedProject) {
-        // 프로젝트가 로드되었지만 아직 선택된 프로젝트가 없으면 첫 번째 프로젝트를 선택
         setSelectedProject(fetchedProjects[0]);
       }
-    } catch (err) {
+    } catch (err: any) {
       const error = err as Error;
-      // 에러 메시지 처리를 위해 객체 형태 대신 문자열로 변환하여 저장
-      setError(`프로젝트 로드 실패: ${error.message}`);
+      setError(`프로젝트 목록 로드 실패: ${error.message}`);
     } finally {
       setIsLoadingProjects(false);
     }
@@ -103,19 +147,67 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
     }
   }, [currentWorkspaceId]);
 
-  // 3. 초기 로드 (유지)
+  // 💡 [핵심 구현] 프로젝트 선택 시 모든 데이터 로드 (InitSettings)
+  const fetchProjectContentInitSettings = useCallback(async () => {
+    if (!selectedProject) return;
+
+    setError(null);
+    try {
+      // 💡 [API 호출] GET /api/projects/{projectId}/init-data
+      const initData = await getProjectInitSettings(selectedProject.projectId);
+      // 2. 필드 옵션 룩업 테이블 생성
+      const fieldLookup = mapFieldOptions(initData.fields);
+      setFieldTypesLookup(initData.fieldTypes);
+      setFieldOptionsLookup(fieldLookup);
+
+      // 3. 멤버 업데이트 (InitData에서 멤버가 제공된다고 가정하면 이 호출로 대체 가능)
+      // setWorkspaceMembers(initData.members);
+      console.log('✅ Project Init Data (Fields/Boards) Loaded.');
+    } catch (err: any) {
+      setError(`초기 컨텐츠 로드 실패: ${err.message}`);
+    }
+  }, [selectedProject]);
+
+  // 3. 초기 로드 및 트리거
   useEffect(() => {
     fetchProjects();
     fetchWorkspaceMembers();
-  }, [fetchProjects, fetchWorkspaceMembers]);
+  }, []); // 💡 [핵심] selectedProject 변경 시 InitSettings 로드 트리거
 
-  // 💡 ProjectContent에서 보드가 업데이트되면 호출될 함수 (이 함수는 fetchBoards와 동일한 역할)
+  useEffect(() => {
+    if (selectedProject) {
+      // ⚠️ 루프 방지: ProjectContent가 fetchBoards를 완료해도 이 함수가 재실행되지 않도록,
+      // 이 useEffect는 오직 selectedProject 변경에만 반응합니다.
+      fetchProjectContentInitSettings();
+    }
+  }, [selectedProject, fetchProjectContentInitSettings]);
+
+  // 💡 ProjectContent에서 보드/필드 업데이트 시 호출될 함수
   const handleBoardContentUpdate = useCallback(() => {
-    console.log('[Dashboard] Board content updated in ProjectContent.');
-  }, []);
+    console.log('[Dashboard] Board content updated in ProjectContent. Reloading Field Data.');
+    // 💡 데이터 변경 (CUD 작업) 후, InitData를 다시 로드하여 ProjectContent에 새 룩업 데이터를 전달
+    fetchProjectContentInitSettings();
+  }, [fetchProjectContentInitSettings]);
+
+  // 💡 필드가 생성된 후 호출될 핸들러
+  const afterFieldCreated = useCallback(
+    (newField: any) => {
+      toggleUiState('showManageModal', false);
+      setEditFieldData(null);
+      handleBoardContentUpdate(); // 💡 데이터 변경 알림 -> InitSettings 재실행
+    },
+    [handleBoardContentUpdate, toggleUiState],
+  );
+
+  const handleCustomField = useCallback(
+    (editFieldData: any) => {
+      toggleUiState('showManageModal', true);
+      setEditFieldData(editFieldData);
+    },
+    [toggleUiState],
+  );
 
   return (
-    // 💡 [수정] MainLayout에 UserProfile 토글 함수를 전달
     <MainLayout
       onLogout={onLogout}
       workspaceId={currentWorkspaceId}
@@ -127,14 +219,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
         selectedProject={selectedProject}
         workspaceMembers={workspaceMembers}
         setSelectedProject={setSelectedProject}
-        // 💡 [수정] 통합된 Setter 사용
         setShowCreateProject={() => toggleUiState('showCreateProject', true)}
         setShowProjectSettings={() => toggleUiState('showProjectSettings', true)}
-        showProjectSelector={uiState.showProjectSelector}
+        showProjectSelector={uiState?.showProjectSelector || false}
         setShowProjectSelector={(show) => toggleUiState('showProjectSelector', show)}
         canAccessSettings={canAccessSettings}
       />
-
       {/* 2. 메인 콘텐츠 영역 */}
       <div className="flex-grow flex flex-col p-3 sm:p-6 overflow-auto mt-16 ml-20">
         {error && (
@@ -144,18 +234,17 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
         )}
 
         {isLoadingProjects ? (
-          <LoadingSpinner message="프로젝트를 로드 중..." />
+          <LoadingSpinner message="프로젝트 목록 로드 중..." />
         ) : selectedProject ? (
           <ProjectContent
             selectedProject={selectedProject}
             workspaceId={currentWorkspaceId}
             onProjectContentUpdate={handleBoardContentUpdate}
-            // 💡 [수정] 통합된 Setter 사용
             onManageModalOpen={() => toggleUiState('showManageModal', true)}
             onEditBoard={setEditBoardData}
-            // 💡 [추가] ProjectContent 내부에 필요한 모달 상태를 전달
-            showCreateBoard={uiState.showCreateBoard}
+            showCreateBoard={uiState?.showCreateBoard || false}
             setShowCreateBoard={(show) => toggleUiState('showCreateBoard', show)}
+            fieldOptionsLookup={fieldOptionsLookup}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -167,25 +256,21 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
           </div>
         )}
       </div>
-
       {/* 3. 모달 영역 */}
-
-      {/* UserProfile Modal 💡 [복구] */}
-      {uiState.showUserProfile && (
+      {/* UserProfile Modal */}
+      {uiState?.showUserProfile && (
         <UserProfileModal onClose={() => toggleUiState('showUserProfile', false)} />
       )}
-
       {/* Create Project Modal */}
-      {uiState.showCreateProject && (
+      {uiState?.showCreateProject && (
         <ProjectModal
           workspaceId={currentWorkspaceId}
           onClose={() => toggleUiState('showCreateProject', false)}
           onProjectSaved={fetchProjects}
         />
       )}
-
       {/* Project Settings Modal */}
-      {uiState.showProjectSettings && selectedProject && (
+      {uiState?.showProjectSettings && selectedProject && (
         <ProjectModal
           workspaceId={currentWorkspaceId}
           project={selectedProject}
@@ -193,28 +278,30 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ onLogout }) => {
           onProjectSaved={fetchProjects}
         />
       )}
-
-      {/* Custom Field Manage Modal */}
-      {uiState.showManageModal && selectedProject && (
+      {/* 💡 Custom Field Add Modal (필드 추가/정의) */}
+      {uiState?.showManageModal && selectedProject && (
         <CustomFieldManageModal
+          editFieldData={editFieldData}
+          filedTypesLookup={filedTypesLookup}
           projectId={selectedProject.projectId}
           onClose={() => toggleUiState('showManageModal', false)}
-          onFieldsUpdated={handleBoardContentUpdate}
+          afterFieldCreated={afterFieldCreated} // 필드 생성 후 갱신 트리거
         />
       )}
-
-      {/* Create/Edit Board Modal (editBoardData 상태 기반) */}
-      {(editBoardData || uiState.showCreateBoard) && selectedProject && (
-        <CreateBoardModal
-          projectId={selectedProject.projectId}
-          stageId={editBoardData?.stageId}
+      {/* Create/Edit Board Modal */}
+      {(editBoardData || uiState?.showCreateBoard) && selectedProject && (
+        <BoardManageModal
+          projectId={selectedProject?.projectId}
           editData={editBoardData}
           workspaceId={currentWorkspaceId}
           onClose={() => {
-            setEditBoardData(null); // 편집 데이터 초기화
-            toggleUiState('showCreateBoard', false); // 생성 모달 닫기
+            setEditBoardData(null);
+            toggleUiState('showCreateBoard', false);
           }}
+          handleCustomField={handleCustomField}
           onBoardCreated={handleBoardContentUpdate}
+          // 💡 [추가] 필드 옵션 룩업 데이터 전달
+          fieldOptionsLookup={fieldOptionsLookup}
         />
       )}
     </MainLayout>

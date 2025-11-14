@@ -11,92 +11,17 @@ import {
   Edit2,
   Trash2,
 } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme } from '../../../contexts/ThemeContext';
 import {
   CustomStageResponse,
   CustomRoleResponse,
   CustomImportanceResponse,
   BoardResponse,
-} from '../../types/board';
-import { getBoard, deleteBoard } from '../../api/board/boardService';
-import { getWorkspaceMembers } from '../../api/user/userService';
-import { WorkspaceMemberResponse } from '../../types/user';
-
-// ⚠️ Mock Data (Mock 데이터는 생략하고 DTO 필드 isSystemDefault을 추가합니다.)
-const MOCK_STAGES: CustomStageResponse[] = [
-  // ... (MOCK_STAGES, MOCK_ROLES, MOCK_IMPORTANCES 정의 유지)
-  {
-    stageId: '00000000-0000-0000-0000-000000000001',
-    label: '대기',
-    color: '#F59E0B',
-    displayOrder: 1,
-    fieldId: '00000000-0000-0000-0000-000000000010',
-    description: '대기 단계',
-    isSystemDefault: true, // Mock 데이터 누락 필드 추가
-  },
-  {
-    stageId: '00000000-0000-0000-0000-000000000002',
-    label: '진행중',
-    color: '#3B82F6',
-    displayOrder: 2,
-    fieldId: '00000000-0000-0000-0000-000000000010',
-    description: '진행 단계',
-    isSystemDefault: false,
-  },
-  {
-    stageId: '00000000-0000-0000-0000-000000000003',
-    label: '완료',
-    color: '#10B981',
-    displayOrder: 3,
-    fieldId: '00000000-0000-0000-0000-000000000010',
-    description: '완료 단계',
-    isSystemDefault: false,
-  },
-];
-const MOCK_ROLES: CustomRoleResponse[] = [
-  {
-    roleId: '00000000-0000-0000-0000-000000000004',
-    label: '프론트엔드',
-    color: '#8B5CF6',
-    displayOrder: 1,
-    fieldId: '00000000-0000-0000-0000-000000000011',
-    description: '프론트 역할',
-    isSystemDefault: true,
-  },
-  {
-    roleId: '00000000-0000-0000-0000-000000000005',
-    label: '백엔드',
-    color: '#EC4899',
-    displayOrder: 2,
-    fieldId: '00000000-0000-0000-0000-000000000011',
-    description: '백엔드 역할',
-    isSystemDefault: false,
-  },
-];
-const MOCK_IMPORTANCES: CustomImportanceResponse[] = [
-  {
-    importanceId: '00000000-0000-0000-0000-000000000006',
-    label: '높음',
-    color: '#F59E0B',
-    displayOrder: 1,
-    fieldId: '00000000-0000-0000-0000-000000000012',
-    description: '높은 중요도',
-    level: 5,
-    isSystemDefault: false,
-  },
-  {
-    importanceId: '00000000-0000-0000-0000-000000000007',
-    label: '낮음',
-    color: '#10B981',
-    displayOrder: 2,
-    fieldId: '00000000-0000-0000-0000-000000000012',
-    description: '낮은 중요도',
-    level: 1,
-    isSystemDefault: true,
-  },
-];
-// ... (MOCK_IMPORTANCES 생략)
-
+} from '../../../types/board';
+import { getBoard, deleteBoard } from '../../../api/board/boardService';
+import { getWorkspaceMembers } from '../../../api/user/userService';
+import { WorkspaceMemberResponse } from '../../../types/user';
+import { MOCK_STAGES, MOCK_ROLES, MOCK_IMPORTANCES } from '../../../mocks/board';
 interface BoardDetailModalProps {
   boardId: string;
   workspaceId: string;
@@ -215,7 +140,7 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
     setIsLoading(true);
     try {
       await deleteBoard(boardId);
-      console.log('✅ 보드 삭제 성공');
+      alert('보드가 삭제되었습니다.');
       onBoardDeleted();
       onClose();
     } catch (err: any) {
@@ -382,39 +307,6 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
               ) : (
                 <span className="text-sm text-gray-500">없음</span>
               )}
-            </div>
-          </div>
-
-          {/* Assignee and Due Date */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                <User className="w-4 h-4 inline mr-1" />
-                담당자
-              </label>
-              {currentAssignee ? (
-                <div className="flex flex-wrap gap-1">
-                  <span
-                    key={currentAssignee.userId}
-                    className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
-                  >
-                    {/* 💡 [수정] userName이 null일 경우 대비 */}
-                    {currentAssignee.userName || currentAssignee.userId}
-                  </span>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-600">없음</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" />
-                마감일
-              </label>
-              <p className="text-sm text-gray-600">
-                {dueDate ? new Date(dueDate).toLocaleDateString('ko-KR') : '없음'}
-              </p>
             </div>
           </div>
         </div>

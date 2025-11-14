@@ -1,14 +1,19 @@
+// src/api/user/userService.ts
+
 import {
   CreateWorkspaceRequest,
   UpdateProfileRequest,
   UpdateWorkspaceSettingsRequest,
   UserProfileResponse,
   WorkspaceResponse,
-  WorkspaceMemberResponse, // New DTO from OpenAPI spec
-  WorkspaceSettingsResponse, // New DTO from OpenAPI spec
-  JoinRequestResponse, // New DTO from OpenAPI spec
+  WorkspaceMemberResponse,
+  WorkspaceMemberRole, // DTO 타입에서 역할 타입을 가져옴
+  WorkspaceSettingsResponse,
+  JoinRequestResponse,
   InviteUserRequest,
-} from '../../types/user'; // DTO 인터페이스는 types/user 파일에서 가져온다고 가정
+  UserWorkspaceResponse,
+  // UpdateWorkspaceRequest DTO가 명시되지 않아 임시로 구조를 정의함
+} from '../../types/user';
 import { userRepoClient } from '../apiConfig';
 import { AxiosResponse } from 'axios';
 
@@ -20,30 +25,25 @@ import { AxiosResponse } from 'axios';
  * 워크스페이스 목록 조회 (현재 사용자가 속한 모든 워크스페이스)
  * [API] GET /api/workspaces/all
  */
-export const getMyWorkspaces = async (): Promise<WorkspaceResponse[]> => {
-  const response: AxiosResponse<WorkspaceResponse[]> = await userRepoClient.get(
+export const getMyWorkspaces = async (): Promise<UserWorkspaceResponse[]> => {
+  const response: AxiosResponse<UserWorkspaceResponse[]> = await userRepoClient.get(
     '/api/workspaces/all',
   );
+  console.log(response.data);
   return response.data;
 };
 
 /**
- * 퍼블릭 워크스페이스 목록 조회
- * [API] GET /api/workspaces
+ * 퍼블릭 워크스페이스 목록 조회 (GET /api/workspaces/public/{workspaceName})
+ * (참고: API 설명에 따르면 '퍼블릭 워크스페이스 검색'이 목적이므로,
+ * path parameter인 workspaceName을 검색어로 사용하여 필터링하는 것으로 해석됩니다.)
+ *
+ * @param workspaceName 검색/필터링할 워크스페이스 이름
+ * @returns WorkspaceResponse 배열을 담은 Promise
  */
-export const getPublicWorkspaces = async (): Promise<WorkspaceResponse[]> => {
-  const response: AxiosResponse<WorkspaceResponse[]> = await userRepoClient.get('/api/workspaces');
-  return response.data;
-};
-
-/**
- * 워크스페이스 검색
- * [API] GET /api/workspaces/search?query={query}
- */
-export const searchWorkspaces = async (query: string): Promise<WorkspaceResponse[]> => {
+export const getPublicWorkspaces = async (workspaceName: string): Promise<WorkspaceResponse[]> => {
   const response: AxiosResponse<WorkspaceResponse[]> = await userRepoClient.get(
-    '/api/workspaces/search',
-    { params: { query } },
+    `/api/workspaces/public/${workspaceName}`,
   );
   return response.data;
 };
@@ -51,36 +51,32 @@ export const searchWorkspaces = async (query: string): Promise<WorkspaceResponse
 /**
  * 특정 워크스페이스 조회
  * [API] GET /api/workspaces/{workspaceId}
+ * * Response: { data: WorkspaceResponse }
  */
 export const getWorkspace = async (workspaceId: string): Promise<WorkspaceResponse> => {
   const response: AxiosResponse<{ data: WorkspaceResponse }> = await userRepoClient.get(
     `/api/workspaces/${workspaceId}`,
   );
-  return response.data.data;
+  return response.data.data; // data 필드 추출
 };
 
 /**
  * 워크스페이스 생성
- * [API] POST /api/workspaces
- * [Response] { data: WorkspaceResponse }
+ * [API] POST /api/workspaces/create
+ * * Response: WorkspaceResponse (API 스펙에 따라 { data: WorkspaceResponse }가 아닐 수 있음)
  */
 export const createWorkspace = async (data: CreateWorkspaceRequest): Promise<WorkspaceResponse> => {
-  try {
-    const response: AxiosResponse<WorkspaceResponse> = await userRepoClient.post(
-      '/api/workspaces',
-      data,
-    );
-    return response.data;
-  } catch (error) {
-    console.error('createWorkspace error:', error);
-    throw error;
-  }
+  const response: AxiosResponse<WorkspaceResponse> = await userRepoClient.post(
+    '/api/workspaces/create',
+    data,
+  );
+  return response.data;
 };
 
 /**
  * 워크스페이스 수정
  * [API] PUT /api/workspaces/{workspaceId}
- * [Body] UpdateWorkspaceRequest (UpdateWorkspaceRequest DTO는 DTO 파일에 정의 필요)
+ * * Response: { data: WorkspaceResponse }
  */
 export const updateWorkspace = async (
   workspaceId: string,
@@ -90,7 +86,7 @@ export const updateWorkspace = async (
     `/api/workspaces/${workspaceId}`,
     data,
   );
-  return response.data.data;
+  return response.data.data; // data 필드 추출
 };
 
 /**
@@ -108,10 +104,10 @@ export const deleteWorkspace = async (workspaceId: string): Promise<void> => {
 export const getWorkspaceSettings = async (
   workspaceId: string,
 ): Promise<WorkspaceSettingsResponse> => {
-  const response: AxiosResponse<{ data: WorkspaceSettingsResponse }> = await userRepoClient.get(
+  const response: AxiosResponse<WorkspaceSettingsResponse> = await userRepoClient.get(
     `/api/workspaces/${workspaceId}/settings`,
   );
-  return response.data.data;
+  return response.data;
 };
 
 /**
@@ -122,15 +118,16 @@ export const updateWorkspaceSettings = async (
   workspaceId: string,
   data: UpdateWorkspaceSettingsRequest,
 ): Promise<WorkspaceSettingsResponse> => {
-  const response: AxiosResponse<{ data: WorkspaceSettingsResponse }> = await userRepoClient.put(
+  const response: AxiosResponse<WorkspaceSettingsResponse> = await userRepoClient.put(
     `/api/workspaces/${workspaceId}/settings`,
     data,
   );
-  return response.data.data;
+  return response.data;
 };
 
 // ========================================
-// Member & Join Request API Functions
+// Member & Join Request API Functions (회원/가입 요청 관리)
+// * WorkspaceMembersTab.tsx 에서 사용되는 주요 함수 그룹
 // ========================================
 
 /**
@@ -140,62 +137,22 @@ export const updateWorkspaceSettings = async (
 export const getWorkspaceMembers = async (
   workspaceId: string,
 ): Promise<WorkspaceMemberResponse[]> => {
-  const response: AxiosResponse<{ data: WorkspaceMemberResponse[] }> = await userRepoClient.get(
+  const response: AxiosResponse<WorkspaceMemberResponse[]> = await userRepoClient.get(
     `/api/workspaces/${workspaceId}/members`,
   );
-  return response.data.data;
+  return response.data;
 };
 
 /**
  * 승인 대기 회원 목록 조회
  * [API] GET /api/workspaces/{workspaceId}/pendingMembers
+ * * Response: { data: JoinRequestResponse[] }
  */
 export const getPendingMembers = async (workspaceId: string): Promise<JoinRequestResponse[]> => {
   const response: AxiosResponse<{ data: JoinRequestResponse[] }> = await userRepoClient.get(
     `/api/workspaces/${workspaceId}/pendingMembers`,
   );
-  return response.data.data;
-};
-
-/**
- * 가입 신청 목록 조회 (status 필터 가능)
- * [API] GET /api/workspaces/{workspaceId}/joinRequests
- */
-export const getJoinRequests = async (
-  workspaceId: string,
-  status?: string, // 'PENDING', 'APPROVED', 'REJECTED'
-): Promise<JoinRequestResponse[]> => {
-  const response: AxiosResponse<{ data: JoinRequestResponse[] }> = await userRepoClient.get(
-    `/api/workspaces/${workspaceId}/joinRequests`,
-    { params: { status } },
-  );
-  return response.data.data;
-};
-
-/**
- * 멤버 역할 변경
- * [API] PUT /api/workspaces/{workspaceId}/members/{memberId}/role
- */
-export const updateMemberRole = async (
-  workspaceId: string,
-  memberId: string,
-  roleName: 'ADMIN' | 'MEMBER',
-): Promise<WorkspaceMemberResponse> => {
-  const data = { roleName };
-
-  const response: AxiosResponse<{ data: WorkspaceMemberResponse }> = await userRepoClient.put(
-    `/api/workspaces/${workspaceId}/members/${memberId}/role`,
-    data,
-  );
-  return response.data.data;
-};
-
-/**
- * 멤버 제거
- * [API] DELETE /api/workspaces/{workspaceId}/members/{memberId}
- */
-export const removeMember = async (workspaceId: string, memberId: string): Promise<void> => {
-  await userRepoClient.delete(`/api/workspaces/${workspaceId}/members/${memberId}`);
+  return response.data.data; // data 필드 추출
 };
 
 /**
@@ -217,31 +174,77 @@ export const rejectMember = async (workspaceId: string, userId: string): Promise
 /**
  * 워크스페이스에 사용자 초대 (userId 기준)
  * [API] POST /api/workspaces/{workspaceId}/members/invite
+ * * Response: { data: WorkspaceMemberResponse }
  */
 export const inviteUser = async (
   workspaceId: string,
-  userId: string,
+  query: string,
 ): Promise<WorkspaceMemberResponse> => {
-  const data: InviteUserRequest = { userId };
+  const data: InviteUserRequest = { query };
 
   const response: AxiosResponse<{ data: WorkspaceMemberResponse }> = await userRepoClient.post(
     `/api/workspaces/${workspaceId}/members/invite`,
     data,
   );
-  return response.data.data;
+  return response.data.data; // data 필드 추출
+};
+
+/**
+ * 멤버 역할 변경
+ * [API] PUT /api/workspaces/{workspaceId}/members/{memberId}/role
+ * * Response: { data: WorkspaceMemberResponse }
+ */
+export const updateMemberRole = async (
+  workspaceId: string,
+  memberId: string,
+  roleName: WorkspaceMemberRole, // DTO 타입을 사용
+): Promise<WorkspaceMemberResponse> => {
+  const data = { roleName };
+
+  const response: AxiosResponse<{ data: WorkspaceMemberResponse }> = await userRepoClient.put(
+    `/api/workspaces/${workspaceId}/members/${memberId}/role`,
+    data,
+  );
+  return response.data.data; // data 필드 추출
+};
+
+/**
+ * 멤버 제거
+ * [API] DELETE /api/workspaces/{workspaceId}/members/{memberId}
+ */
+export const removeMember = async (workspaceId: string, memberId: string): Promise<void> => {
+  await userRepoClient.delete(`/api/workspaces/${workspaceId}/members/${memberId}`);
+};
+
+/**
+ * 가입 신청 목록 조회 (status 필터 가능)
+ * [API] GET /api/workspaces/{workspaceId}/joinRequests
+ * * Response: { data: JoinRequestResponse[] }
+ */
+export const getJoinRequests = async (
+  workspaceId: string,
+  status?: string, // 'PENDING', 'APPROVED', 'REJECTED'
+): Promise<JoinRequestResponse[]> => {
+  const response: AxiosResponse<{ data: JoinRequestResponse[] }> = await userRepoClient.get(
+    `/api/workspaces/${workspaceId}/joinRequests`,
+    { params: { status } },
+  );
+  return response.data.data; // data 필드 추출
 };
 
 /**
  * 워크스페이스 가입 신청
  * [API] POST /api/workspaces/join-requests
+ * * Response: { data: JoinRequestResponse }
  */
 export const createJoinRequest = async (workspaceId: string): Promise<JoinRequestResponse> => {
   const data = { workspaceId };
-  const response: AxiosResponse<{ data: JoinRequestResponse }> = await userRepoClient.post(
+  const response: AxiosResponse<JoinRequestResponse> = await userRepoClient.post(
     '/api/workspaces/join-requests',
     data,
   );
-  return response.data.data;
+  console.log(response.data);
+  return response.data; // data 필드 추출
 };
 
 // ========================================
@@ -251,35 +254,51 @@ export const createJoinRequest = async (workspaceId: string): Promise<JoinReques
 /**
  * 내 프로필 조회 (기본 프로필)
  * [API] GET /api/profiles/me
+ * * Response: { data: UserProfileResponse }
  */
 export const getMyProfile = async (): Promise<UserProfileResponse> => {
   const response: AxiosResponse<{ data: UserProfileResponse }> = await userRepoClient.get(
     '/api/profiles/me',
   );
-  return response.data.data;
+  return response.data.data; // data 필드 추출
 };
 
 /**
  * 내 모든 프로필 조회 (기본 프로필 + 워크스페이스별 프로필)
  * [API] GET /api/profiles/all/me
+ * * Response: { data: UserProfileResponse[] }
  */
 export const getAllMyProfiles = async (): Promise<UserProfileResponse[]> => {
   const response: AxiosResponse<{ data: UserProfileResponse[] }> = await userRepoClient.get(
     '/api/profiles/all/me',
   );
-  return response.data.data;
+  return response.data.data; // data 필드 추출
 };
 
 /**
  * 내 프로필 정보 통합 업데이트 (기본 프로필)
  * [API] PUT /api/profiles/me
+ * * Response: { data: UserProfileResponse }
  */
 export const updateMyProfile = async (data: UpdateProfileRequest): Promise<UserProfileResponse> => {
   const response: AxiosResponse<{ data: UserProfileResponse }> = await userRepoClient.put(
     '/api/profiles/me',
     data,
   );
-  return response.data.data;
+  return response.data.data; // data 필드 추출
+};
+
+// ========================================
+// New API Functions (기타)
+// ========================================
+
+/**
+ * 기본 워크스페이스 설정
+ * [API] POST /api/workspaces/default
+ */
+export const setDefaultWorkspace = async (workspaceId: string): Promise<void> => {
+  const data = { workspaceId };
+  await userRepoClient.post('/api/workspaces/default', data);
 };
 
 // ========================================
@@ -305,17 +324,4 @@ export const updateWorkspaceProfile = async (
   data: UpdateProfileRequest,
 ): Promise<UserProfileResponse> => {
   throw new Error('워크스페이스별 프로필 업데이트 엔드포인트가 제거되었습니다. (백엔드 구현 필요)');
-};
-
-// ========================================
-// New API Functions (기타)
-// ========================================
-
-/**
- * 기본 워크스페이스 설정
- * [API] POST /api/workspaces/default
- */
-export const setDefaultWorkspace = async (workspaceId: string): Promise<void> => {
-  const data = { workspaceId };
-  await userRepoClient.post('/api/workspaces/default', data);
 };
