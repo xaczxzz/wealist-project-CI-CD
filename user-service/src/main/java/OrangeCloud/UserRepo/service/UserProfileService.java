@@ -16,6 +16,7 @@ import OrangeCloud.UserRepo.dto.userprofile.UpdateProfileRequest;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -88,7 +89,8 @@ public class UserProfileService {
         // DTO 변환 후 반환
         return profiles.stream()
                 .map(UserProfileResponse::from)
-                .toList();
+                .collect(Collectors.toList());
+
     }
 
 
