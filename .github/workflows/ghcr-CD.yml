@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   workflow_run:
-    workflows: ["Build and Push Docker Images to GHCR"]
+    workflows: ["Build and Push Docker Images to GHCR (EC2 Dev)"]
     types: [completed]
     branches: [main]
 

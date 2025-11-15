@@ -35,7 +35,7 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "내 정보 조회", description = "현재 인증된 사용자의 정보를 조회합니다.")
+    @Operation(summary = "내 정보 조회", description = "현재 인증된 사용자의 정보를 조회합니다. ")
     public ResponseEntity<User> getMyInfo(Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getName());
         log.debug("Fetching user info for ID: {}", userId);
