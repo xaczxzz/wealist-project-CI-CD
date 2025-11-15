@@ -109,7 +109,7 @@ jobs:
             EOF
             
             # 수정된 버전
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin
+            echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin
             if [ $? -eq 0 ]; then
               echo "✅ GHCR login successful"
             else
