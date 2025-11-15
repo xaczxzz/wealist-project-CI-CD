@@ -108,9 +108,16 @@ jobs:
             LOG_LEVEL=info
             EOF
             
-            echo "🔐 Logging in to GHCR..."
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-            
+            # 수정된 버전
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin
+            if [ $? -eq 0 ]; then
+              echo "✅ GHCR login successful"
+            else
+            echo "❌ GHCR login failed"
+            exit 1
+            fi  
+
+
             # 기존 서비스 중지
             echo "🛑 Stopping existing services..."
             docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml down || true
