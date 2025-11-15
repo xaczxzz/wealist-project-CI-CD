@@ -5,6 +5,16 @@ on:
     workflows: ["Build and Push Docker Images to GHCR (EC2 Dev)"]
     types: [completed]
     branches: [main]
+  workflow_dispatch:  # 수동 실행 가능
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: false
+        default: 'latest'
+      force_pull:
+        description: 'Force pull latest images'
+        type: boolean
+        default: true
 
 jobs:
   deploy:
