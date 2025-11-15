@@ -20,7 +20,7 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    environment: development  # GitHub Environment 사용 (선택사항)
+    # environment: development  # GitHub Environment 사용 (선택사항)
     
     steps:
       - name: Deploy to EC2
@@ -185,18 +185,6 @@ jobs:
             echo "   - Board Service: http://${{ secrets.EC2_HOST }}:8000"
             echo "   - Grafana: http://${{ secrets.EC2_HOST }}:3001"
             echo "   - Prometheus: http://${{ secrets.EC2_HOST }}:9090"
-
-      # 선택사항: 배포 결과를 Slack이나 Discord로 알림
-      - name: Notify Deployment Result
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Deployment successful"
-            # 성공 알림 로직
-          else
-            echo "❌ Deployment failed" 
-            # 실패 알림 로직
-          fi
       - name: Debug Secrets
         run: |
           echo "Checking secrets availability..."
@@ -212,3 +200,15 @@ jobs:
             echo "✅ EC2_SSH_PRIVATE_KEY is available"
             echo "Key length: $(echo '${{ secrets.EC2_SSH_PRIVATE_KEY }}' | wc -c) characters"
           fi
+      # 선택사항: 배포 결과를 Slack이나 Discord로 알림
+      - name: Notify Deployment Result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful"
+            # 성공 알림 로직
+          else
+            echo "❌ Deployment failed" 
+            # 실패 알림 로직
+          fi
+      
