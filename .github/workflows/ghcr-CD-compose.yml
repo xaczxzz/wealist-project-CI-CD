@@ -1,0 +1,189 @@
+name: Deploy to EC2
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images to GHCR"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: development  # GitHub Environment 사용 (선택사항)
+    
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            echo "🚀 Starting deployment..."
+            
+            # 프로젝트 디렉토리로 이동
+            cd /home/ec2-user/wealist-project
+            
+            # Git에서 최신 docker-compose 파일 가져오기
+            echo "📥 Pulling latest configuration..."
+            git pull origin main
+            
+            # 환경변수 파일 동적 생성 (GitHub Secrets에서 주입)
+            echo "⚙️ Creating environment configuration..."
+            cat > docker/env/.env.ec2-dev << 'EOF'
+            # =============================================================================
+            # GHCR Configuration
+            # =============================================================================
+            GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
+            GITHUB_REPOSITORY_NAME=${{ github.event.repository.name }}
+            USER_SERVICE_VERSION=${{ github.sha }}
+            BOARD_SERVICE_VERSION=${{ github.sha }}
+            
+            # =============================================================================
+            # Application Configuration
+            # =============================================================================
+            APP_NAME=wealist-api
+            VERSION=dev-${{ github.sha }}
+            
+            # =============================================================================
+            # Database Configuration
+            # =============================================================================
+            POSTGRES_SUPERUSER=postgres
+            POSTGRES_SUPERUSER_PASSWORD=${{ secrets.SUPERUSER_DATABASE_PASSWORD }}
+            
+            # User Service Database
+            USER_DB_NAME=wealist_user_dev
+            USER_DB_USER=wealist_user
+            USER_DB_PASSWORD=${{ secrets.USER_DATABASE_PASSWORD }}
+            
+            # Board Service Database
+            BOARD_DB_NAME=wealist_board_dev
+            BOARD_DB_USER=wealist_board
+            BOARD_DB_PASSWORD=${{ secrets.BOARD_DATABASE_PASSWORD }}
+            
+            # =============================================================================
+            # Redis Configuration
+            # =============================================================================
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            
+            # =============================================================================
+            # JWT Configuration
+            # =============================================================================
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_ACCESS_TOKEN_EXPIRATION_MS=1800000
+            JWT_REFRESH_TOKEN_EXPIRATION_MS=604800000
+            
+            # =============================================================================
+            # OAuth Configuration
+            # =============================================================================
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            
+            # =============================================================================
+            # JPA Configuration
+            # =============================================================================
+            JPA_DDL_AUTO=update
+            JPA_SHOW_SQL=false
+            JPA_FORMAT_SQL=false
+            
+            # =============================================================================
+            # CORS Configuration
+            # =============================================================================
+            CORS_ORIGINS=https://wealist.co.kr,https://www.wealist.co.kr,http://localhost:3000
+            
+            # =============================================================================
+            # Monitoring Configuration
+            # =============================================================================
+            GRAFANA_ADMIN_USER=admin
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+            PROMETHEUS_PORT=9090
+            GRAFANA_PORT=3001
+            
+            # =============================================================================
+            # Port Configuration
+            # =============================================================================
+            USER_HOST_PORT=8080
+            BOARD_HOST_PORT=8000
+            POSTGRES_HOST_PORT=5432
+            REDIS_HOST_PORT=6379
+            NODE_EXPORTER_PORT=9100
+            REDIS_EXPORTER_PORT=9121
+            POSTGRES_EXPORTER_PORT=9187
+            
+            # =============================================================================
+            # Logging Configuration
+            # =============================================================================
+            LOG_LEVEL=info
+            EOF
+            
+             # GHCR 로그인
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      
+            # ✅ 정확한 Docker Compose 파일들 지정
+            COMPOSE_FILES="-f docker/compose/docker-compose.ec2-dev.yml"
+            ENV_FILE="--env-file docker/env/.env.ec2-dev"
+            
+            # 기존 서비스 중지
+            echo "🛑 Stopping existing services..."
+            docker compose ${ENV_FILE} ${COMPOSE_FILES} down || true
+            
+            # 최신 이미지 Pull
+            echo "📦 Pulling latest images..."
+            docker compose ${ENV_FILE} ${COMPOSE_FILES} pull
+            
+            # 서비스 시작
+            echo "🔄 Starting services..."
+            docker compose ${ENV_FILE} ${COMPOSE_FILES} up -d --remove-orphans
+            
+            # 헬스체크
+            echo "🏥 Health checking..."
+            sleep 30
+            docker compose ${ENV_FILE} ${COMPOSE_FILES} ps
+            
+            # User Service 헬스체크
+            if curl -f -s http://localhost:8080/actuator/health > /dev/null; then
+              echo "✅ User Service: Healthy"
+            else
+              echo "❌ User Service: Unhealthy"
+              echo "📋 User Service logs:"
+              docker logs wealist-user-service --tail 20
+            fi
+            
+            # Board Service 헬스체크
+            if curl -f -s http://localhost:8000/health > /dev/null; then
+              echo "✅ Board Service: Healthy"
+            else
+              echo "❌ Board Service: Unhealthy"
+              echo "📋 Board Service logs:"
+              docker logs wealist-board-service --tail 20
+            fi
+            
+            # 컨테이너 상태 확인
+            echo "📊 Container Status:"
+            docker compose --env-file docker/env/.env.ec2-dev \
+              -f docker/compose/docker-compose.ec2-dev.yml ps
+            
+            # 사용하지 않는 이미지 정리
+            echo "🧹 Cleaning up unused images..."
+            docker image prune -f
+            
+            # 배포 완료 정보
+            echo "✅ Deployment completed successfully!"
+            echo "🌐 Services available at:"
+            echo "   - User Service: http://${{ secrets.EC2_HOST }}:8080"
+            echo "   - Board Service: http://${{ secrets.EC2_HOST }}:8000"
+            echo "   - Grafana: http://${{ secrets.EC2_HOST }}:3001"
+            echo "   - Prometheus: http://${{ secrets.EC2_HOST }}:9090"
+
+      # 선택사항: 배포 결과를 Slack이나 Discord로 알림
+      - name: Notify Deployment Result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful"
+            # 성공 알림 로직
+          else
+            echo "❌ Deployment failed" 
+            # 실패 알림 로직
+          fi

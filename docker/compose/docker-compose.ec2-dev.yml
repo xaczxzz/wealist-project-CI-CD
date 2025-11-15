@@ -9,14 +9,18 @@
 #      cp docker/env/.env.ec2-dev.example docker/env/.env.ec2-dev
 #      vi docker/env/.env.ec2-dev  # OAuth 등 필수 값 입력
 #
-#   2. 서비스 시작:
+#   2. GHCR 로그인 (필요시):
+#      echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+#
+#   3. 서비스 시작:
 #      docker compose --env-file docker/env/.env.ec2-dev \
 #        -f docker/compose/docker-compose.ec2-dev.yml up -d
 #
-#   3. 로그 확인:
+#   4. 로그 확인:
 #      docker compose -f docker/compose/docker-compose.ec2-dev.yml logs -f
 #
 # 특징:
+#   - GHCR에서 이미지 Pull
 #   - 모든 포트 외부 노출 (테스트 편의성)
 #   - 모니터링 스택 포함 (Prometheus, Grafana)
 #   - 리소스 제한 설정 (t3.medium 기준)
@@ -27,14 +31,10 @@ services:
   # Backend Services
   # ===========================================================================
 
-  # User Service (Spring Boot)
+  # User Service (Spring Boot) - GHCR에서 가져오기
   user-service:
-    build:
-      context: ../../user-service
-      dockerfile: Dockerfile
-      args:
-        CACHEBUST: ${CACHEBUST:-1}
-    image: wealist/user-service:${VERSION:-latest}
+    # GHCR 이미지 사용 (빌드 설정 제거)
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-github-username}/${GITHUB_REPOSITORY_NAME:-wealist-project}/wealist-user-service:${USER_SERVICE_VERSION:-latest}
     container_name: wealist-user-service
     hostname: user-service
 
@@ -111,12 +111,10 @@ services:
           cpus: '0.3'
           memory: 256M
 
-  # Board Service (Go)
+  # Board Service (Go) - GHCR에서 가져오기
   board-service:
-    build:
-      context: ../../board-service
-      dockerfile: docker/Dockerfile
-    image: wealist/board-service:${VERSION:-latest}
+    # GHCR 이미지 사용 (빌드 설정 제거)
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-github-username}/${GITHUB_REPOSITORY_NAME:-wealist-project}/wealist-board-service:${BOARD_SERVICE_VERSION:-latest}
     container_name: wealist-board-service
     hostname: board-service
 
@@ -181,9 +179,8 @@ services:
           memory: 128M
 
   # ===========================================================================
-  # Infrastructure Services
+  # Infrastructure Services (변경사항 없음)
   # ===========================================================================
-  # Note: Frontend는 S3에 별도 배포되므로 여기에 포함하지 않음
 
   # PostgreSQL Database
   postgres:
@@ -228,10 +225,8 @@ services:
         max-size: "10m"
         max-file: "3"
 
-    # Security: Run as non-root user
     user: postgres
 
-    # 리소스 제한 (t3.small 최적화)
     deploy:
       resources:
         limits:
@@ -281,7 +276,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-    # 리소스 제한 (t3.small 최적화)
     deploy:
       resources:
         limits:
@@ -292,17 +286,14 @@ services:
           memory: 128M
 
   # ===========================================================================
-  # Monitoring Services
+  # Monitoring Services (변경사항 없음)
   # ===========================================================================
 
-  # Prometheus - Metrics Collection
   prometheus:
     image: prom/prometheus:latest
     container_name: wealist-prometheus
     hostname: prometheus
-
     user: "0:0"
-
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -310,33 +301,25 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
       - '--storage.tsdb.retention.time=15d'
-
     volumes:
       - ../../prometheus/config:/etc/prometheus:ro
       - prometheus-data:/prometheus
-
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
-
     networks:
       - wealist-net
-
     restart: unless-stopped
-
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-    # 리소스 제한 (t3.small 최적화)
     deploy:
       resources:
         limits:
@@ -346,50 +329,38 @@ services:
           cpus: '0.15'
           memory: 128M
 
-  # Grafana - Visualization
   grafana:
     image: grafana/grafana:latest
     container_name: wealist-grafana
     hostname: grafana
-
     user: "0:0"
-
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:${GRAFANA_PORT:-3001}
       - GF_INSTALL_PLUGINS=redis-datasource
-
     volumes:
       - grafana-storage:/var/lib/grafana
       - grafana-logs:/var/log/grafana
-
     ports:
       - "${GRAFANA_PORT:-3001}:3000"
-
     networks:
       - wealist-net
-
     depends_on:
       - prometheus
-
     restart: unless-stopped
-
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-    # 리소스 제한 (t3.small 최적화)
     deploy:
       resources:
         limits:
@@ -399,46 +370,32 @@ services:
           cpus: '0.1'
           memory: 64M
 
-  # ===========================================================================
-  # Exporters
-  # ===========================================================================
-
-  # Redis Exporter
   redis-exporter:
     image: oliver006/redis_exporter:latest
     container_name: wealist-redis-exporter
     hostname: redis-exporter
-
     environment:
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_EXPORTER_DEBUG=false
-
     ports:
       - "${REDIS_EXPORTER_PORT:-9121}:9121"
-
     networks:
       - wealist-net
-
     depends_on:
       - redis
-
     restart: unless-stopped
-
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9121/metrics"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-    # 리소스 제한 (t3.small 최적화)
     deploy:
       resources:
         limits:
@@ -448,41 +405,31 @@ services:
           cpus: '0.05'
           memory: 32M
 
-  # PostgreSQL Exporter
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: wealist-postgres-exporter
     hostname: postgres-exporter
-
     environment:
       - DATA_SOURCE_NAME=postgresql://${POSTGRES_SUPERUSER}:${POSTGRES_SUPERUSER_PASSWORD}@postgres:5432/postgres?sslmode=disable
-
     ports:
       - "${POSTGRES_EXPORTER_PORT:-9187}:9187"
-
     networks:
       - wealist-net
-
     depends_on:
       postgres:
         condition: service_healthy
-
     restart: unless-stopped
-
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9187/metrics"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-    # 리소스 제한 (t3.small 최적화)
     deploy:
       resources:
         limits:
@@ -492,45 +439,35 @@ services:
           cpus: '0.05'
           memory: 32M
 
-  # Node Exporter (호스트 메트릭 수집)
   node-exporter:
     image: prom/node-exporter:latest
     container_name: wealist-node-exporter
     hostname: node-exporter
-
     command:
       - '--path.rootfs=/host'
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
-
     ports:
       - "${NODE_EXPORTER_PORT:-9100}:9100"
-
     networks:
       - wealist-net
-
     restart: unless-stopped
-
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9100/metrics"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-    # 리소스 제한 (t3.small 최적화)
     deploy:
       resources:
         limits:
@@ -544,7 +481,6 @@ services:
 # Networks
 # =============================================================================
 networks:
-  # 단일 네트워크 사용 (EC2 Dev 환경 단순화)
   wealist-net:
     driver: bridge
     name: wealist-ec2-dev-net
@@ -556,19 +492,15 @@ volumes:
   postgres-data:
     name: wealist-ec2-postgres-data
     driver: local
-
   redis-data:
     name: wealist-ec2-redis-data
     driver: local
-
   prometheus-data:
     name: wealist-ec2-prometheus-data
     driver: local
-
   grafana-storage:
     name: wealist-ec2-grafana-storage
     driver: local
-
   grafana-logs:
     name: wealist-ec2-grafana-logs
     driver: local
