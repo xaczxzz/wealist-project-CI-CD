@@ -1,3 +1,173 @@
+# name: Deploy to EC2
+
+# on:
+#   workflow_run:
+#     workflows: ["Build and Push Docker Images to GHCR (EC2 Dev)"]
+#     types: [completed]
+#     branches: [main]
+#   workflow_dispatch:
+
+# jobs:
+#   deploy:
+#     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+#     runs-on: ubuntu-latest
+    
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+
+#       - name: Copy Docker Compose files to EC2
+#         uses: appleboy/scp-action@v0.1.7
+#         with:
+#           host: ${{ secrets.EC2_HOST }}
+#           username: ec2-user
+#           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+#           source: "docker/compose/docker-compose.ec2-dev.yml,docker/env/.env.ec2-dev.example"
+#           target: "/home/ec2-user/wealist-deploy/"
+#           strip_components: 2  # docker/compose/ 부분 제거
+
+#       - name: Deploy to EC2
+#         uses: appleboy/ssh-action@v1.0.3
+#         with:
+#           host: ${{ secrets.EC2_HOST }}
+#           username: ec2-user
+#           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+#           script: |
+#             echo "🚀 Starting deployment..."
+            
+#             # 필수 도구 설치 확인
+#             if ! command -v docker &> /dev/null; then
+#               echo "Installing Docker..."
+#               sudo yum update -y
+#               sudo yum install -y docker
+#               sudo systemctl start docker
+#               sudo systemctl enable docker
+#               sudo usermod -a -G docker ec2-user
+#             fi
+            
+#             if ! command -v docker-compose &> /dev/null; then
+#               echo "Installing Docker Compose..."
+#               sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+#               sudo chmod +x /usr/local/bin/docker-compose
+#             fi
+            
+#             # Docker 서비스 시작
+#             sudo systemctl start docker
+            
+#             # 배포 디렉토리로 이동
+#             cd /home/ec2-user/wealist-deploy
+            
+#             echo "⚙️ Creating environment configuration..."
+            
+#             # .env 파일 생성 (기존 .env.ec2-dev.example 기반)
+#             cat > .env.ec2-dev << 'EOF'
+#             # GHCR Configuration
+#             GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
+#             GITHUB_REPOSITORY_NAME=wealist-project-ci-cd
+#             USER_SERVICE_VERSION=${{ github.sha }}
+#             BOARD_SERVICE_VERSION=${{ github.sha }}
+            
+#             # Database Configuration
+#             POSTGRES_SUPERUSER=postgres
+#             POSTGRES_SUPERUSER_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+#             USER_DB_NAME=wealist_user_dev
+#             USER_DB_USER=wealist_user
+#             USER_DB_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+#             BOARD_DB_NAME=wealist_board_dev
+#             BOARD_DB_USER=wealist_board
+#             BOARD_DB_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+            
+#             # Application Secrets
+#             DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+#             GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+#             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+#             JWT_SECRET=${{ secrets.JWT_SECRET }}
+#             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            
+#             # Monitoring
+#             GRAFANA_ADMIN_USER=admin
+#             GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+            
+#             # Ports
+#             USER_HOST_PORT=8080
+#             BOARD_HOST_PORT=8000
+#             POSTGRES_HOST_PORT=5432
+#             REDIS_HOST_PORT=6379
+#             GRAFANA_PORT=3001
+#             PROMETHEUS_PORT=9090
+#             NODE_EXPORTER_PORT=9100
+#             REDIS_EXPORTER_PORT=9121
+#             POSTGRES_EXPORTER_PORT=9187
+            
+#             # Application Configuration
+#             APP_NAME=wealist-api
+#             JPA_DDL_AUTO=update
+#             JPA_SHOW_SQL=false
+#             JPA_FORMAT_SQL=false
+#             CORS_ORIGINS=https://wealist.co.kr,http://localhost:3000
+#             LOG_LEVEL=info
+#             EOF
+            
+#             # 수정된 버전
+#             echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin
+#             if [ $? -eq 0 ]; then
+#               echo "✅ GHCR login successful"
+#             else
+#             echo "❌ GHCR login failed"
+#             exit 1
+#             fi  
+
+
+#             # 기존 서비스 중지
+#             echo "🛑 Stopping existing services..."
+#             docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml down || true
+            
+#             # 최신 이미지 Pull
+#             echo "📦 Pulling latest images..."
+#             docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml pull
+            
+#             # 서비스 시작
+#             echo "🔄 Starting services..."
+#             docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml up -d --remove-orphans
+            
+#             # 헬스체크 대기
+#             echo "⏳ Waiting for services to start..."
+#             sleep 60
+            
+#             # 컨테이너 상태 확인
+#             echo "📊 Container Status:"
+#             docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml ps
+            
+#             # 헬스체크
+#             echo "🏥 Health checking..."
+#             if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
+#               echo "✅ User Service: Healthy"
+#             else
+#               echo "❌ User Service: Unhealthy"
+#               echo "📋 User Service logs:"
+#               docker logs wealist-user-service --tail 20
+#             fi
+            
+#             if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
+#               echo "✅ Board Service: Healthy"
+#             else
+#               echo "❌ Board Service: Unhealthy"
+#               echo "📋 Board Service logs:"
+#               docker logs wealist-board-service --tail 20
+#             fi
+            
+#             # 정리
+#             echo "🧹 Cleaning up unused images..."
+#             docker image prune -f
+            
+#             echo "✅ Deployment completed successfully!"
+#             echo "🌐 Services available at:"
+#             echo "   - User Service: http://${{ secrets.EC2_HOST }}:8080"
+#             echo "   - Board Service: http://${{ secrets.EC2_HOST }}:8000"
+#             echo "   - Grafana: http://${{ secrets.EC2_HOST }}:3001"
+#             echo "   - Prometheus: http://${{ secrets.EC2_HOST }}:9090"
+
+
 name: Deploy to EC2
 
 on:
@@ -24,7 +194,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           source: "docker/compose/docker-compose.ec2-dev.yml,docker/env/.env.ec2-dev.example"
           target: "/home/ec2-user/wealist-deploy/"
-          strip_components: 2  # docker/compose/ 부분 제거
+          strip_components: 2
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -59,8 +229,8 @@ jobs:
             
             echo "⚙️ Creating environment configuration..."
             
-            # .env 파일 생성 (기존 .env.ec2-dev.example 기반)
-            cat > .env.ec2-dev << 'EOF'
+            # .env 파일 생성 (GitHub Actions 변수가 치환되도록 'EOF' 사용)
+            cat > .env.ec2-dev << EOF
             # GHCR Configuration
             GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
             GITHUB_REPOSITORY_NAME=wealist-project-ci-cd
@@ -108,23 +278,116 @@ jobs:
             LOG_LEVEL=info
             EOF
             
-            # 수정된 버전
-            echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin
+            echo "📋 Environment file created. Sample content:"
+            head -10 .env.ec2-dev
+            
+            echo "🔐 Logging in to GHCR..."
+            # 올바른 시크릿 이름 사용 (GHCR_TOKEN으로 가정)
+            echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin 2>/dev/null
+            
             if [ $? -eq 0 ]; then
               echo "✅ GHCR login successful"
             else
-            echo "❌ GHCR login failed"
-            exit 1
-            fi  
-
-
+              echo "❌ GHCR login failed"
+              # 대안: Docker 설정 파일 직접 생성
+              echo "Trying alternative authentication method..."
+              mkdir -p ~/.docker
+              GHCR_AUTH=$(echo -n "${{ github.repository_owner }}:${{ secrets.GHCR_TOKEN }}" | base64 -w 0)
+              cat > ~/.docker/config.json << DOCKER_EOF
+            {
+              "auths": {
+                "ghcr.io": {
+                  "auth": "${GHCR_AUTH}"
+                }
+              }
+            }
+            DOCKER_EOF
+              chmod 600 ~/.docker/config.json
+              echo "✅ Alternative authentication configured"
+            fi
+            
+            echo "🔍 Testing image accessibility..."
+            # CI에서 푸시되는 실제 이미지 형식 확인
+            REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+            COMMIT_SHA="${{ github.sha }}"
+            
+            # 가능한 이미지 이름 패턴들 테스트
+            USER_IMAGE_PATTERNS=(
+              "ghcr.io/${REPO_LOWER}/wealist-user-service"
+              "ghcr.io/${{ github.repository_owner }}/wealist-project-ci-cd/wealist-user-service"
+            )
+            
+            BOARD_IMAGE_PATTERNS=(
+              "ghcr.io/${REPO_LOWER}/wealist-board-service"
+              "ghcr.io/${{ github.repository_owner }}/wealist-project-ci-cd/wealist-board-service"
+            )
+            
+            # User Service 이미지 찾기
+            USER_FOUND=""
+            USER_TAG=""
+            
+            for pattern in "${USER_IMAGE_PATTERNS[@]}"; do
+              if docker pull ${pattern}:${COMMIT_SHA} 2>/dev/null; then
+                USER_FOUND="${pattern}"
+                USER_TAG="${COMMIT_SHA}"
+                echo "✅ Found user-service: ${pattern}:${COMMIT_SHA}"
+                break
+              elif docker pull ${pattern}:latest 2>/dev/null; then
+                USER_FOUND="${pattern}"
+                USER_TAG="latest"
+                echo "✅ Found user-service: ${pattern}:latest"
+                break
+              fi
+            done
+            
+            # Board Service 이미지 찾기
+            BOARD_FOUND=""
+            BOARD_TAG=""
+            
+            for pattern in "${BOARD_IMAGE_PATTERNS[@]}"; do
+              if docker pull ${pattern}:${COMMIT_SHA} 2>/dev/null; then
+                BOARD_FOUND="${pattern}"
+                BOARD_TAG="${COMMIT_SHA}"
+                echo "✅ Found board-service: ${pattern}:${COMMIT_SHA}"
+                break
+              elif docker pull ${pattern}:latest 2>/dev/null; then
+                BOARD_FOUND="${pattern}"
+                BOARD_TAG="latest"
+                echo "✅ Found board-service: ${pattern}:latest"
+                break
+              fi
+            done
+            
+            # 이미지를 찾지 못한 경우 에러
+            if [ -z "$USER_FOUND" ] || [ -z "$BOARD_FOUND" ]; then
+              echo "❌ Could not find required images!"
+              echo "USER_FOUND: $USER_FOUND"
+              echo "BOARD_FOUND: $BOARD_FOUND"
+              echo "Available images:"
+              docker images | grep wealist || echo "No wealist images found"
+              exit 1
+            fi
+            
+            # Docker Compose 파일에서 이미지 이름 동적 교체
+            echo "📝 Updating Docker Compose with found images..."
+            
+            # 백업 생성
+            cp docker-compose.ec2-dev.yml docker-compose.ec2-dev.yml.backup
+            
+            # 실제 찾은 이미지로 교체
+            sed -i "s|ghcr.io/.*/wealist-user-service:.*|${USER_FOUND}:${USER_TAG}|g" docker-compose.ec2-dev.yml
+            sed -i "s|ghcr.io/.*/wealist-board-service:.*|${BOARD_FOUND}:${BOARD_TAG}|g" docker-compose.ec2-dev.yml
+            
+            echo "📋 Updated image references:"
+            grep -E "(user-service|board-service)" docker-compose.ec2-dev.yml | grep "image:" || echo "No image lines found"
+            
             # 기존 서비스 중지
             echo "🛑 Stopping existing services..."
             docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml down || true
             
-            # 최신 이미지 Pull
-            echo "📦 Pulling latest images..."
-            docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml pull
+            # 최신 이미지 Pull (나머지 서비스들)
+            echo "📦 Pulling remaining images..."
+            docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml pull || echo "Some images failed to pull, continuing..."
             
             # 서비스 시작
             echo "🔄 Starting services..."
@@ -138,31 +401,63 @@ jobs:
             echo "📊 Container Status:"
             docker-compose --env-file .env.ec2-dev -f docker-compose.ec2-dev.yml ps
             
+            # 실행 중인 모든 컨테이너 확인
+            echo "📊 All running containers:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
             # 헬스체크
             echo "🏥 Health checking..."
-            if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
-              echo "✅ User Service: Healthy"
-            else
+            
+            # User Service 헬스체크 (재시도 로직 포함)
+            USER_HEALTHY=false
+            for i in {1..10}; do
+              if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
+                echo "✅ User Service: Healthy (attempt $i)"
+                USER_HEALTHY=true
+                break
+              else
+                echo "⏳ User Service: Checking... ($i/10)"
+                sleep 10
+              fi
+            done
+            
+            if [ "$USER_HEALTHY" = false ]; then
               echo "❌ User Service: Unhealthy"
               echo "📋 User Service logs:"
-              docker logs wealist-user-service --tail 20
+              docker logs wealist-user-service --tail 30 2>/dev/null || echo "No user service container found"
             fi
             
-            if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
-              echo "✅ Board Service: Healthy"
-            else
+            # Board Service 헬스체크
+            BOARD_HEALTHY=false
+            for i in {1..10}; do
+              if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
+                echo "✅ Board Service: Healthy (attempt $i)"
+                BOARD_HEALTHY=true
+                break
+              else
+                echo "⏳ Board Service: Checking... ($i/10)"
+                sleep 10
+              fi
+            done
+            
+            if [ "$BOARD_HEALTHY" = false ]; then
               echo "❌ Board Service: Unhealthy"
               echo "📋 Board Service logs:"
-              docker logs wealist-board-service --tail 20
+              docker logs wealist-board-service --tail 30 2>/dev/null || echo "No board service container found"
             fi
             
             # 정리
             echo "🧹 Cleaning up unused images..."
             docker image prune -f
             
-            echo "✅ Deployment completed successfully!"
+            echo "✅ Deployment completed!"
             echo "🌐 Services available at:"
             echo "   - User Service: http://${{ secrets.EC2_HOST }}:8080"
             echo "   - Board Service: http://${{ secrets.EC2_HOST }}:8000"
             echo "   - Grafana: http://${{ secrets.EC2_HOST }}:3001"
             echo "   - Prometheus: http://${{ secrets.EC2_HOST }}:9090"
+            
+            # 최종 상태 요약
+            echo "📊 Deployment Summary:"
+            echo "User Service: $([ "$USER_HEALTHY" = true ] && echo "✅ Healthy" || echo "❌ Unhealthy")"
+            echo "Board Service: $([ "$BOARD_HEALTHY" = true ] && echo "✅ Healthy" || echo "❌ Unhealthy")"
